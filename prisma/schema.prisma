@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("STAFF") // "ADMIN" | "STAFF"
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Customer {
+  id          String      @id @default(cuid())
+  customerId  String      @unique
+  name        String
+  phone       String
+  altPhone    String?
+  email       String?
+  address     String?
+  city        String?
+  state       String?
+  pincode     String?
+  gstin       String?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  projects    Project[]
+  quotations  Quotation[]
+  invoices    Invoice[]
+  payments    Payment[]
+}
+
+model Project {
+  id                     String      @id @default(cuid())
+  projectId              String      @unique
+  customerId             String
+  customer               Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name                   String
+  location               String?
+  projectType            String?     // e.g. Residential, Commercial, Villa, Apartment
+  startDate              DateTime?
+  expectedCompletionDate DateTime?
+  status                 String      @default("NEW") // NEW, IN_PROGRESS, COMPLETED, ON_HOLD, CANCELLED
+  notes                  String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  quotations             Quotation[]
+  invoices               Invoice[]
+  payments               Payment[]
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Quotation {
+  id                 String             @id @default(cuid())
+  quotationNumber    String             @unique
+  quotationDate      DateTime           @default(now())
+  validUntil         DateTime
+  customerId         String
+  customer           Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  projectId          String
+  project            Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  projectLocation    String?
+  customerPhone      String?
+  customerEmail      String?
+  customerAddress    String?
+  customerGstin      String?
+  taxMode            String             @default("CGST_SGST") // "CGST_SGST" | "IGST" | "EXEMPT"
+  discountType       String             @default("NONE")      // "PERCENTAGE" | "FIXED" | "NONE"
+  discountValue      Float              @default(0)
+  gstRate            Float              @default(18)
+  subtotal           Float              @default(0)
+  discountAmount     Float              @default(0)
+  taxableAmount      Float              @default(0)
+  cgstAmount         Float              @default(0)
+  sgstAmount         Float              @default(0)
+  igstAmount         Float              @default(0)
+  otherChargesAmount Float              @default(0)
+  grandTotal         Float              @default(0)
+  roundedGrandTotal  Float              @default(0)
+  status             String             @default("DRAFT")     // DRAFT, SENT, PENDING, APPROVED, REJECTED, EXPIRED, CONVERTED
+  convertedInvoiceId String?
+  notes              String?
+  termsAndConditions String?
+  createdBy          String?
+  updatedBy          String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  items              QuotationItem[]
+  additionalCharges  AdditionalCharge[]
+}
+
+model QuotationItem {
+  id           String    @id @default(cuid())
+  quotationId  String
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  categoryName String
+  type         String    // Free text, user entered
+  description  String    // Free text, user entered
+  quantity     Float
+  unit         String    // Sq.ft, R.ft, Nos, etc.
+  rate         Float     // Strictly user entered!
+  amount       Float     // quantity * rate
+  sortOrder    Int       @default(0)
+}
+
+model Invoice {
+  id                 String             @id @default(cuid())
+  invoiceNumber      String             @unique
+  quotationId        String?
+  invoiceDate        DateTime           @default(now())
+  dueDate            DateTime
+  customerId         String
+  customer           Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  projectId          String
+  project            Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  projectLocation    String?
+  customerPhone      String?
+  customerEmail      String?
+  customerAddress    String?
+  customerGstin      String?
+  taxMode            String             @default("CGST_SGST") // "CGST_SGST" | "IGST" | "EXEMPT"
+  discountType       String             @default("NONE")      // "PERCENTAGE" | "FIXED" | "NONE"
+  discountValue      Float              @default(0)
+  gstRate            Float              @default(18)
+  subtotal           Float              @default(0)
+  discountAmount     Float              @default(0)
+  taxableAmount      Float              @default(0)
+  cgstAmount         Float              @default(0)
+  sgstAmount         Float              @default(0)
+  igstAmount         Float              @default(0)
+  otherChargesAmount Float              @default(0)
+  grandTotal         Float              @default(0)
+  roundedGrandTotal  Float              @default(0)
+  totalPaid          Float              @default(0)
+  balanceDue         Float              @default(0)
+  paymentStatus      String             @default("UNPAID")    // UNPAID, PARTIALLY_PAID, PAID, OVERDUE
+  notes              String?
+  termsAndConditions String?
+  createdBy          String?
+  updatedBy          String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  items              InvoiceItem[]
+  additionalCharges  AdditionalCharge[]
+  payments           Payment[]
+}
+
+model InvoiceItem {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  categoryName String
+  type         String   // Free text, user entered
+  description  String   // Free text, user entered
+  quantity     Float
+  unit         String
+  rate         Float    // Strictly user entered!
+  amount       Float    // quantity * rate
+  sortOrder    Int      @default(0)
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  paymentId       String   @unique
+  invoiceId       String
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paymentDate     DateTime @default(now())
+  amountPaid      Float
+  paymentMethod   String   @default("BANK_TRANSFER") // CASH, BANK_TRANSFER, UPI, CHEQUE, OTHER
+  referenceNumber String?
+  notes           String?
+  recordedBy      String?
+  createdAt       DateTime @default(now())
+}
+
+model AdditionalCharge {
+  id          String     @id @default(cuid())
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  invoiceId   String?
+  invoice     Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  amount      Float
+}
+
+model CompanySettings {
+  id                  String   @id @default("default")
+  companyName         String   @default("Capsule Company")
+  tagline             String   @default("YOUR SPACE MAKER")
+  logoUrl             String   @default("/capsule-logo.png")
+  address             String   @default("N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024")
+  phone               String   @default("+91 96321 24422")
+  email               String   @default("Workscapsule@gmail.com")
+  website             String   @default("")
+  gstin               String   @default("29ABCDE1234F1Z5")
+  bankName            String   @default("HDFC Bank")
+  accountName         String   @default("CAPSULE COMPANY")
+  accountNumber       String   @default("50200034981276")
+  ifscCode            String   @default("HDFC0001245")
+  branch              String   @default("Indiranagar Branch, Bengaluru")
+  upiId               String   @default("capsulecompany@hdfcbank")
+  quotationPrefix     String   @default("CAP-QTN-")
+  invoicePrefix       String   @default("CAP-INV-")
+  defaultTerms        String   @default("1. 50% Advance on quotation approval to commence procurement.\n2. 40% on material delivery and inspection at site.\n3. 10% on completion and final handover.\n4. Any additional work beyond this quotation will be charged extra as agreed.\n5. Quotation valid for 30 days from the date of issue.")
+  authorizedSignatory String   @default("For CAPSULE COMPANY (Authorized Signatory)")
+  updatedAt           DateTime @updatedAt
+}
