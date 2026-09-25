@@ -19,11 +19,11 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
 
   const pageWidth = 210;
   const pageHeight = 297;
-  const margin = 14;
+  const margin = 15;
   const contentWidth = pageWidth - margin * 2;
 
   const company = data.companySettings || {
-    companyName: 'CAPSULE COMPANY',
+    companyName: 'Capsule Company',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024',
     phone: '+91 96321 24422',
@@ -39,388 +39,329 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
     authorizedSignatory: 'For CAPSULE COMPANY (Authorized Signatory)',
   };
 
-  // Embed company logo
+  // --- 1. TOP HEADER (MODERN EDITORIAL DESIGN) ---
+  // Large bold tracked title on Left
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.setTextColor(22, 22, 22);
+  const titleText = isQuotation ? 'QUOTATION' : 'INVOICE';
+  doc.text(titleText, margin, margin + 9, { charSpace: 2 });
+
+  // Company branding & contact below title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(55, 55, 55);
+  doc.text('CAPSULE COMPANY  •  YOUR SPACE MAKER', margin, margin + 15);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(95, 95, 95);
+  const addressLines = doc.splitTextToSize(company.address, 115);
+  doc.text(addressLines, margin, margin + 19);
+
+  const contactY = margin + 19 + addressLines.length * 3.1;
+  doc.text(`Phone: ${company.phone}  |  Email: ${company.email}  |  GSTIN: ${company.gstin || '29ABCDE1234F1Z5'}`, margin, contactY);
+
+  // Circular Logo on Top Right
+  const logoSize = 27;
+  const logoX = pageWidth - margin - logoSize;
+  const logoY = margin;
+
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', margin, margin, 18, 18);
+      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoSize, logoSize);
     } catch (e) {
-      console.warn('Logo embed skipped in PDF:', e);
+      console.warn('Logo base64 embed failed:', e);
     }
   } else if (typeof document !== 'undefined') {
     try {
       const img = document.querySelector('img[alt="Capsule Logo"]') as HTMLImageElement;
       if (img && img.complete && img.naturalWidth > 0) {
-        doc.addImage(img, 'PNG', margin, margin, 18, 18);
+        doc.addImage(img, 'PNG', logoX, logoY, logoSize, logoSize);
       }
     } catch (e) {
-      console.warn('Logo embed skipped in PDF:', e);
+      console.warn('Logo DOM embed failed:', e);
     }
   }
 
-  // --- HEADER SECTION ---
-  const headerLeftX = margin + 22;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(23, 21, 20); // #171514
-  doc.text(company.companyName, headerLeftX, margin + 5);
+  // Header separator line
+  const dividerY = Math.max(contactY + 4, logoY + logoSize + 2);
+  doc.setDrawColor(225, 225, 225);
+  doc.setLineWidth(0.3);
+  doc.line(margin, dividerY, pageWidth - margin, dividerY);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(200, 138, 110); // #C88A6E
-  doc.text(company.tagline || 'YOUR SPACE MAKER', headerLeftX, margin + 9);
+  // --- 2. PARTIES & METADATA SECTION ---
+  const metaStartY = dividerY + 4.5;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(90, 85, 82);
-  const addressLines = doc.splitTextToSize(company.address, 95);
-  doc.text(addressLines, headerLeftX, margin + 13);
-
-  const contactY = margin + 13 + addressLines.length * 3.2;
-  doc.text(`Phone: ${company.phone}  |  Email: ${company.email}`, headerLeftX, contactY);
-  if (company.gstin) {
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(50, 45, 42);
-    doc.text(`GSTIN: ${company.gstin}`, headerLeftX, contactY + 3.5);
-  }
-
-  // --- DOCUMENT META BOX (Right Aligned) ---
-  const metaBoxWidth = 55;
-  const metaBoxX = pageWidth - margin - metaBoxWidth;
-  const metaBoxY = margin;
-
-  doc.setFillColor(250, 247, 242); // #FAF7F2
-  doc.setDrawColor(200, 138, 110); // #C88A6E
-  doc.setLineWidth(0.4);
-  doc.roundedRect(metaBoxX, metaBoxY, metaBoxWidth, 14, 2, 2, 'FD');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(179, 115, 86); // #B37356
-  doc.text(isQuotation ? 'QUOTATION' : 'TAX INVOICE', metaBoxX + metaBoxWidth / 2, metaBoxY + 5.5, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(23, 21, 20);
-  doc.text(isQuotation ? data.quotationNumber : data.invoiceNumber, metaBoxX + metaBoxWidth / 2, metaBoxY + 10.5, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(90, 85, 82);
-
-  const dateStr = formatDate(isQuotation ? data.quotationDate : data.invoiceDate);
-  const dueDateStr = formatDate(isQuotation ? data.validUntil : data.dueDate);
-
-  doc.text(`Date: ${dateStr}`, metaBoxX, metaBoxY + 19);
-  doc.text(`${isQuotation ? 'Valid Until: ' : 'Due Date: '}${dueDateStr}`, metaBoxX, metaBoxY + 23);
-  if (!isQuotation && data.quotation?.quotationNumber) {
-    doc.text(`Ref Quote: ${data.quotation.quotationNumber}`, metaBoxX, metaBoxY + 27);
-  }
-
-  // --- HORIZONTAL DIVIDER ---
-  const lineY = margin + 34;
-  doc.setDrawColor(232, 226, 217); // #E8E2D9
-  doc.setLineWidth(0.5);
-  doc.line(margin, lineY, pageWidth - margin, lineY);
-
-  // --- CLIENT & PROJECT DETAILS BOXES (Two Columns) ---
-  const infoBoxY = lineY + 3;
-  const boxWidth = (contentWidth - 4) / 2;
-  const boxHeight = 28;
-
-  // Box 1: Customer Details
-  doc.setFillColor(250, 247, 242);
-  doc.setDrawColor(232, 226, 217);
-  doc.roundedRect(margin, infoBoxY, boxWidth, boxHeight, 1.5, 1.5, 'FD');
-
+  // Left Column: ISSUED TO
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  doc.setTextColor(200, 138, 110);
-  doc.text('BILL TO / CUSTOMER DETAILS', margin + 3, infoBoxY + 4.5);
+  doc.setTextColor(25, 25, 25);
+  doc.text('ISSUED TO:', margin, metaStartY, { charSpace: 1 });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.setTextColor(23, 21, 20);
-  doc.text(data.customer?.name || 'Valued Customer', margin + 3, infoBoxY + 9);
+  doc.setTextColor(15, 15, 15);
+  doc.text(data.customer?.name || 'Valued Client', margin, metaStartY + 4.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.setTextColor(70, 65, 60);
+  doc.setTextColor(80, 80, 80);
+  const projName = data.project?.name || 'Interior Work';
+  const projLoc = data.projectLocation || data.project?.location || 'Bengaluru';
+  doc.text(`Project: ${projName} (${projLoc})`, margin, metaStartY + 8.5);
 
   const custAddr = data.customerAddress || data.customer?.address || 'Site Address';
-  const custAddrLines = doc.splitTextToSize(custAddr, boxWidth - 6);
-  doc.text(custAddrLines.slice(0, 2), margin + 3, infoBoxY + 13);
+  const custAddrLines = doc.splitTextToSize(custAddr, 82);
+  doc.text(custAddrLines.slice(0, 2), margin, metaStartY + 12.2);
 
-  const phoneY = infoBoxY + 13 + Math.min(custAddrLines.length, 2) * 3.3;
+  const custContactY = metaStartY + 12.2 + Math.min(custAddrLines.length, 2) * 3.2;
   const custPhone = data.customerPhone || data.customer?.phone || '-';
-  doc.text(`Phone: ${custPhone}`, margin + 3, phoneY);
+  const custEmail = data.customerEmail || data.customer?.email || '';
+  const custGstin = data.customerGstin ? `  |  GSTIN: ${data.customerGstin}` : '';
+  doc.text(`Phone: ${custPhone}${custEmail ? `  |  Email: ${custEmail}` : ''}${custGstin}`, margin, custContactY);
 
-  if (data.customerEmail) {
-    doc.text(`Email: ${data.customerEmail}`, margin + 3, phoneY + 3.5);
-  } else if (data.customerGstin) {
-    doc.text(`GSTIN: ${data.customerGstin}`, margin + 3, phoneY + 3.5);
+  // Right Column: DOCUMENT METADATA
+  const rightMetaX = pageWidth - margin - 58;
+  const drawMetaRow = (label: string, value: string, yPos: number, isAccent = false) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(90, 90, 90);
+    doc.text(label, rightMetaX, yPos, { charSpace: 0.5 });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    if (isAccent) doc.setTextColor(179, 115, 86);
+    else doc.setTextColor(20, 20, 20);
+    doc.text(value, pageWidth - margin, yPos, { align: 'right' });
+  };
+
+  let rY = metaStartY + 0.5;
+  if (isQuotation) {
+    drawMetaRow('QUOTATION NO:', data.quotationNumber || 'CAP-QTN-0001', rY);
+    rY += 4.2;
+    drawMetaRow('DATE:', formatDate(data.quotationDate), rY);
+    rY += 4.2;
+    drawMetaRow('VALID UNTIL:', formatDate(data.validUntil), rY);
+    rY += 4.2;
+    drawMetaRow('TAX REGIME:', data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)', rY);
+  } else {
+    drawMetaRow('INVOICE NO:', data.invoiceNumber || 'CAP-INV-0001', rY);
+    rY += 4.2;
+    drawMetaRow('INVOICE DATE:', formatDate(data.invoiceDate), rY);
+    rY += 4.2;
+    drawMetaRow('DUE DATE:', formatDate(data.dueDate), rY);
+    rY += 4.2;
+    const invStatus = data.status || 'ISSUED';
+    drawMetaRow('STATUS:', invStatus, rY, true);
+    if (data.quotation?.quotationNumber) {
+      rY += 4.2;
+      drawMetaRow('REF QUOTE:', data.quotation.quotationNumber, rY);
+    }
   }
 
-  // Box 2: Project Details
-  const box2X = margin + boxWidth + 4;
-  doc.setFillColor(250, 247, 242);
-  doc.roundedRect(box2X, infoBoxY, boxWidth, boxHeight, 1.5, 1.5, 'FD');
+  // --- 3. WORK ITEMS TABLE ---
+  const tableStartY = Math.max(custContactY + 4, rY + 4);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(200, 138, 110);
-  doc.text('PROJECT & SITE LOCATION', box2X + 3, infoBoxY + 4.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(23, 21, 20);
-  doc.text(data.project?.name || 'Interior Project', box2X + 3, infoBoxY + 9);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(70, 65, 60);
-  const projLoc = data.projectLocation || data.project?.location || 'Bengaluru';
-  const projLocLines = doc.splitTextToSize(`Site Location: ${projLoc}`, boxWidth - 6);
-  doc.text(projLocLines, box2X + 3, infoBoxY + 13);
-
-  doc.text(`Project Type: ${data.project?.projectType || 'Interior Work'}`, box2X + 3, infoBoxY + 21);
-
-  // --- WORK ITEMS TABLE ---
   const items = Array.isArray(data.items) ? data.items : [];
-  const tableRows = items.map((item: any, idx: number) => {
-    const scopeText = item.type
-      ? `${item.type}${item.description ? `\n${item.description}` : ''}`
-      : item.description || '-';
-
+  const tableRows = items.map((item: any) => {
+    const scopeHeader = `${item.categoryName ? `${item.categoryName}` : ''}${item.type ? ` — ${item.type}` : ''}`;
+    const desc = item.description ? `\n${item.description}` : '';
     return [
-      String(idx + 1),
-      item.categoryName || '-',
-      scopeText,
-      String(item.quantity ?? 1),
-      item.unit || 'Nos',
+      scopeHeader + desc,
       formatCurrency(item.rate ?? 0),
-      formatCurrency(item.amount ?? 0),
+      `${item.quantity ?? 1} ${item.unit || 'Nos'}`,
+      formatCurrency(item.amount ?? 0)
     ];
   });
 
-  const tableStartY = infoBoxY + boxHeight + 4;
-
   autoTable(doc, {
     startY: tableStartY,
-    head: [['#', 'Category', 'Scope & Requirement Description', 'Qty', 'Unit', 'Rate (₹)', 'Amount (₹)']],
+    head: [['DESCRIPTION', 'RATE', 'QTY', 'TOTAL']],
     body: tableRows,
-    theme: 'grid',
+    theme: 'plain',
     headStyles: {
-      fillColor: [23, 21, 20],
-      textColor: [255, 255, 255],
+      textColor: [20, 20, 20],
       fontStyle: 'bold',
       fontSize: 7.5,
-      halign: 'left',
-      cellPadding: 2.5,
+      cellPadding: { top: 3, bottom: 3, left: 1, right: 1 },
     },
     bodyStyles: {
-      fontSize: 7.5,
-      textColor: [35, 30, 28],
-      cellPadding: 2.5,
-      valign: 'top',
-    },
-    alternateRowStyles: {
-      fillColor: [253, 252, 250],
+      textColor: [40, 40, 40],
+      fontSize: 7.2,
+      cellPadding: { top: 2.8, bottom: 2.8, left: 1, right: 1 },
+      valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 32, fontStyle: 'bold' },
-      2: { cellWidth: 'auto' },
-      3: { cellWidth: 14, halign: 'center' },
-      4: { cellWidth: 14, halign: 'center' },
-      5: { cellWidth: 24, halign: 'right' },
-      6: { cellWidth: 26, halign: 'right', fontStyle: 'bold' },
+      0: { cellWidth: 'auto' },
+      1: { cellWidth: 26, halign: 'right' },
+      2: { cellWidth: 24, halign: 'center' },
+      3: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] },
     },
     margin: { left: margin, right: margin },
   });
 
-  // Position after table
-  let currentY = (doc as any).lastAutoTable?.finalY || tableStartY + 20;
+  const finalTableY = (doc as any).lastAutoTable?.finalY || tableStartY + 20;
+
+  // Clean lines mirroring reference image
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.5);
+  doc.line(margin, tableStartY, pageWidth - margin, tableStartY); // Top table line
+
+  const headerBottomY = tableStartY + 8.5;
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(210, 210, 210);
+  doc.line(margin, headerBottomY, pageWidth - margin, headerBottomY); // Below headers line
+
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(30, 30, 30);
+  doc.line(margin, finalTableY, pageWidth - margin, finalTableY); // Table bottom line
+
+  let currentY = finalTableY + 3.5;
 
   // Check if totals section will overflow the page
-  const totalsSectionHeight = 85;
-  if (currentY + totalsSectionHeight > pageHeight - margin) {
+  const remainingSpace = pageHeight - currentY - margin;
+  if (remainingSpace < 55) {
     doc.addPage();
     currentY = margin + 5;
   }
 
-  // --- FINANCIAL TOTALS BOX (Right Aligned) ---
-  const totalsBoxWidth = 85;
-  const totalsBoxX = pageWidth - margin - totalsBoxWidth;
-  const totalsBoxY = currentY + 3;
+  // --- 4. TOTALS SECTION (Right) & PAYMENT INFO (Left) ---
+  const totalsWidth = 65;
+  const totalsX = pageWidth - margin - totalsWidth;
+  let totalsY = currentY + 1;
 
-  doc.setFillColor(250, 247, 242);
-  doc.setDrawColor(232, 226, 217);
+  const drawTotalLine = (label: string, value: string, isBold = false, isLarge = false, isAccent = false) => {
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    doc.setFontSize(isLarge ? 9.5 : 7.2);
+    if (isAccent) doc.setTextColor(179, 115, 86);
+    else if (isLarge) doc.setTextColor(15, 15, 15);
+    else doc.setTextColor(70, 70, 70);
 
-  // Calculate totals rows
+    doc.text(label, totalsX, totalsY);
+    doc.text(value, pageWidth - margin, totalsY, { align: 'right' });
+    totalsY += isLarge ? 5.2 : 3.8;
+  };
+
   const subtotal = data.subtotal ?? 0;
   const discountAmount = data.discountAmount ?? 0;
-  const taxableAmount = data.taxableAmount ?? subtotal - discountAmount;
   const cgstAmount = data.cgstAmount ?? 0;
   const sgstAmount = data.sgstAmount ?? 0;
   const igstAmount = data.igstAmount ?? 0;
   const otherChargesAmount = data.otherChargesAmount ?? 0;
   const grandTotal = data.roundedGrandTotal ?? data.grandTotal ?? 0;
 
-  let rowY = totalsBoxY + 4;
-  doc.setFontSize(7.5);
-
-  const drawTotalLine = (label: string, value: string, isBold = false, isAccent = false, isNegative = false) => {
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    if (isAccent) doc.setTextColor(179, 115, 86);
-    else if (isNegative) doc.setTextColor(180, 50, 50);
-    else doc.setTextColor(70, 65, 60);
-
-    doc.text(label, totalsBoxX + 4, rowY);
-    doc.text(value, totalsBoxX + totalsBoxWidth - 4, rowY, { align: 'right' });
-    rowY += 4.2;
-  };
-
-  drawTotalLine('Subtotal:', formatCurrency(subtotal));
+  drawTotalLine('SUBTOTAL', formatCurrency(subtotal), true);
 
   if (discountAmount > 0) {
-    drawTotalLine(`Discount (${data.discountType === 'PERCENTAGE' ? `${data.discountValue}%` : 'Fixed'}):`, `- ${formatCurrency(discountAmount)}`, false, false, true);
-    drawTotalLine('Taxable Amount:', formatCurrency(taxableAmount), true);
+    drawTotalLine(`Discount (${data.discountValue ?? 0}%):`, `- ${formatCurrency(discountAmount)}`);
   }
 
-  if (data.taxMode === 'CGST_SGST') {
-    const halfGst = (data.gstRate || 18) / 2;
-    drawTotalLine(`CGST (${halfGst}%):`, formatCurrency(cgstAmount));
-    drawTotalLine(`SGST (${halfGst}%):`, formatCurrency(sgstAmount));
-  } else if (data.taxMode === 'IGST') {
+  if (cgstAmount > 0 || sgstAmount > 0) {
+    const half = (data.gstRate || 18) / 2;
+    drawTotalLine(`CGST (${half}%):`, formatCurrency(cgstAmount));
+    drawTotalLine(`SGST (${half}%):`, formatCurrency(sgstAmount));
+  } else if (igstAmount > 0) {
     drawTotalLine(`IGST (${data.gstRate || 18}%):`, formatCurrency(igstAmount));
   }
 
   if (otherChargesAmount > 0) {
-    const charges = Array.isArray(data.additionalCharges) ? data.additionalCharges : [];
-    if (charges.length > 0) {
-      charges.forEach((ch: any) => {
-        drawTotalLine(`${ch.description || 'Charge'}:`, formatCurrency(ch.amount));
-      });
-    } else {
-      drawTotalLine('Other Charges:', formatCurrency(otherChargesAmount));
-    }
+    drawTotalLine('Other Charges:', formatCurrency(otherChargesAmount));
   }
 
-  // Grand Total Line with distinct highlight
-  rowY += 1;
-  doc.setDrawColor(200, 138, 110);
-  doc.line(totalsBoxX + 2, rowY - 1, totalsBoxX + totalsBoxWidth - 2, rowY - 1);
-  rowY += 3.5;
+  // Thin line above total
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.2);
+  doc.line(totalsX, totalsY - 0.8, pageWidth - margin, totalsY - 0.8);
+  totalsY += 1.8;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(23, 21, 20);
-  doc.text('Grand Total:', totalsBoxX + 4, rowY);
-  doc.text(formatCurrency(grandTotal), totalsBoxX + totalsBoxWidth - 4, rowY, { align: 'right' });
-  rowY += 4.5;
+  drawTotalLine('TOTAL', formatCurrency(grandTotal), true, true);
 
-  // Invoice Specific Balance Due
+  // For Invoices: Paid & Balance Due
   if (!isQuotation) {
     const totalPaid = data.totalPaid ?? 0;
     const balanceDue = data.balanceDue ?? grandTotal - totalPaid;
-    drawTotalLine('Total Paid to Date:', formatCurrency(totalPaid));
-    drawTotalLine('Balance Due:', formatCurrency(balanceDue), true, true);
+    drawTotalLine('Total Paid:', formatCurrency(totalPaid));
+    drawTotalLine('Balance Due:', formatCurrency(balanceDue), true, false, true);
   }
 
-  // Draw background box for totals
-  const totalBoxFinalHeight = rowY - totalsBoxY + 2;
-  doc.roundedRect(totalsBoxX, totalsBoxY, totalsBoxWidth, totalBoxFinalHeight, 2, 2, 'D');
+  // Left Column: PAYMENT INFO & AMOUNT IN WORDS
+  let paymentY = currentY + 1;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(25, 25, 25);
+  doc.text('PAYMENT INFO:', margin, paymentY, { charSpace: 1 });
+  paymentY += 3.8;
 
-  // --- LEFT SIDE: AMOUNT IN WORDS & BANK DETAILS ---
-  const leftSideWidth = contentWidth - totalsBoxWidth - 6;
-  const leftX = margin;
-  let leftY = totalsBoxY;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(75, 75, 75);
+  doc.text(`Bank: ${company.bankName || 'HDFC Bank'}`, margin, paymentY);
+  paymentY += 3.4;
+  doc.text(`Account Name: ${company.accountName || 'CAPSULE COMPANY'}`, margin, paymentY);
+  paymentY += 3.4;
+  doc.text(`Account No.: ${company.accountNumber || '50200034981276'}`, margin, paymentY);
+  paymentY += 3.4;
+  doc.text(`IFSC: ${company.ifscCode || 'HDFC0001245'}  |  UPI: ${company.upiId || 'capsulecompany@hdfcbank'}`, margin, paymentY);
+  paymentY += 4.5;
 
   // Amount in words
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(200, 138, 110);
-  doc.text('AMOUNT IN WORDS:', leftX, leftY + 3.5);
+  doc.setFontSize(6.8);
+  doc.setTextColor(50, 50, 50);
+  doc.text('AMOUNT IN WORDS:', margin, paymentY);
+  paymentY += 3.2;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(23, 21, 20);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6.8);
+  doc.setTextColor(85, 85, 85);
   const words = numberToWordsINR(grandTotal);
-  const wordLines = doc.splitTextToSize(words, leftSideWidth);
-  doc.text(wordLines, leftX, leftY + 7.5);
-  leftY += 9 + wordLines.length * 3.5;
+  const wordLines = doc.splitTextToSize(words, contentWidth - totalsWidth - 10);
+  doc.text(wordLines, margin, paymentY);
+  paymentY += wordLines.length * 3.2 + 2;
 
-  // Bank & Payment Details
+  // --- 5. TERMS & SIGNATURE SECTION ---
+  const sectionDividerY = Math.max(totalsY, paymentY) + 3;
+  doc.setDrawColor(225, 225, 225);
+  doc.setLineWidth(0.3);
+  doc.line(margin, sectionDividerY, pageWidth - margin, sectionDividerY);
+
+  const footerY = sectionDividerY + 3.5;
+
+  // Terms and conditions on Bottom Left
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(200, 138, 110);
-  doc.text('BANK & PAYMENT DETAILS:', leftX, leftY);
-  leftY += 4;
+  doc.setFontSize(6.8);
+  doc.setTextColor(30, 30, 30);
+  doc.text('TERMS & CONDITIONS:', margin, footerY);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(60, 55, 52);
-  doc.text(`Bank Name: ${company.bankName || 'HDFC Bank'}  |  Branch: ${company.branch || 'Bengaluru'}`, leftX, leftY);
-  leftY += 3.8;
-  doc.text(`Account Name: ${company.accountName || company.companyName}`, leftX, leftY);
-  leftY += 3.8;
-  doc.text(`A/C No: ${company.accountNumber || '50200034981276'}  |  IFSC: ${company.ifscCode || 'HDFC0001245'}`, leftX, leftY);
-  leftY += 3.8;
-  if (company.upiId) {
-    doc.text(`UPI ID: ${company.upiId}`, leftX, leftY);
-    leftY += 3.8;
-  }
+  doc.setFontSize(6.2);
+  doc.setTextColor(110, 110, 110);
+  const termsText = data.termsAndConditions || company.defaultTerms || (isQuotation
+    ? '1. 50% advance on approval, 40% on material delivery at site, 10% on handover.\n2. Quotation valid for 30 days from date of issue.'
+    : '1. Payment due as per agreed schedule. Late payments may attract interest.\n2. All goods delivered remain property until paid in full.');
+  const termsLines = doc.splitTextToSize(termsText, contentWidth - 55);
+  doc.text(termsLines.slice(0, 3), margin, footerY + 3.2);
 
-  // Advance Y below both columns
-  currentY = Math.max(leftY, totalsBoxY + totalBoxFinalHeight) + 4;
-
-  // Check overflow before Terms and Conditions
-  if (currentY + 30 > pageHeight - margin) {
-    doc.addPage();
-    currentY = margin + 5;
-  }
-
-  // --- TERMS & CONDITIONS ---
-  doc.setDrawColor(232, 226, 217);
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 4;
-
+  // Signature on Bottom Right
+  const sigX = pageWidth - margin - 45;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(200, 138, 110);
-  doc.text('TERMS & CONDITIONS:', margin, currentY);
-  currentY += 3.5;
+  doc.setFontSize(7.2);
+  doc.setTextColor(20, 20, 20);
+  doc.text('For CAPSULE COMPANY', sigX, footerY + 1.5);
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9.5);
+  doc.setTextColor(60, 60, 60);
+  doc.text('Authorized Signatory', sigX, footerY + 8);
+
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.2);
+  doc.line(sigX, footerY + 10, pageWidth - margin, footerY + 10);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(80, 75, 72);
-  const terms = data.termsAndConditions || company.defaultTerms || '1. Quotation valid for 30 days.\n2. 50% advance to commence work.';
-  const termsLines = doc.splitTextToSize(terms, contentWidth - 45);
-  doc.text(termsLines.slice(0, 5), margin, currentY);
-
-  // --- AUTHORIZED SIGNATORY (Bottom Right) ---
-  const sigX = pageWidth - margin - 50;
-  const sigY = currentY + 12;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(100, 95, 90);
-  doc.text(company.authorizedSignatory || 'For CAPSULE COMPANY', sigX, sigY);
-  doc.text('(Authorized Signatory)', sigX + 6, sigY + 4);
-
-  // --- FOOTER (Page Numbering & Copyright) ---
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(140, 135, 130);
-    doc.text(
-      `Capsule Company  •  N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Bengaluru  •  +91 96321 24422  •  Page ${i} of ${totalPages}`,
-      pageWidth / 2,
-      pageHeight - 6,
-      { align: 'center' }
-    );
-  }
+  doc.setFontSize(6);
+  doc.setTextColor(130, 130, 130);
+  doc.text('(Authorized Signatory)', sigX + 6, footerY + 13);
 
   return doc;
 }
@@ -451,4 +392,3 @@ export async function generateAndDownloadPDF({ data, type, logoBase64 }: PDFGene
     doc.save(filename);
   }
 }
-
