@@ -32,12 +32,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
+function parseSafeDate(val: any, fallback: Date): Date {
+  if (!val) return fallback;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? fallback : d;
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const sessionUser = session?.name || 'Capsule Office';
 
     const { id } = await params;
     const body = await req.json();
@@ -47,9 +51,66 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
     }
 
+    let customerId = body.customerId || existing.customerId;
+    let projectId = body.projectId || existing.projectId;
+
+    // Update customer details if customerName provided
+    const rawCustomerName = (body.customerName || '').trim();
+    if (rawCustomerName) {
+      const cPhone = body.customerPhone?.trim() || '';
+      let customer = customerId
+        ? await prisma.customer.findUnique({ where: { id: customerId } })
+        : null;
+
+      if (!customer) {
+        customer = await prisma.customer.findFirst({
+          where: {
+            OR: [
+              { name: { equals: rawCustomerName } },
+              ...(cPhone ? [{ phone: { equals: cPhone } }] : [])
+            ]
+          }
+        });
+      }
+
+      if (customer) {
+        customer = await prisma.customer.update({
+          where: { id: customer.id },
+          data: {
+            name: rawCustomerName,
+            ...(cPhone ? { phone: cPhone } : {}),
+            ...(body.customerAltPhone !== undefined ? { altPhone: body.customerAltPhone.trim() || null } : {}),
+            ...(body.customerEmail !== undefined ? { email: body.customerEmail.trim() || null } : {}),
+            ...(body.customerAddress !== undefined ? { address: body.customerAddress.trim() || null } : {}),
+            ...(body.customerCity !== undefined ? { city: body.customerCity.trim() || 'Bengaluru' } : {}),
+            ...(body.customerState !== undefined ? { state: body.customerState.trim() || 'Karnataka' } : {}),
+            ...(body.customerPincode !== undefined ? { pincode: body.customerPincode.trim() || null } : {}),
+            ...(body.customerGstin !== undefined ? { gstin: body.customerGstin.trim() || null } : {})
+          }
+        });
+        customerId = customer.id;
+      }
+    }
+
+    // Update project details if projectName provided
+    const rawProjectName = (body.projectName || '').trim();
+    if (rawProjectName && projectId) {
+      const existingProj = await prisma.project.findUnique({ where: { id: projectId } });
+      if (existingProj) {
+        await prisma.project.update({
+          where: { id: projectId },
+          data: {
+            name: rawProjectName,
+            ...(body.projectLocation ? { location: body.projectLocation.trim() } : {})
+          }
+        });
+      }
+    }
+
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+
     const {
-      customerId = existing.customerId,
-      projectId = existing.projectId,
       quotationDate,
       validUntil,
       taxMode = existing.taxMode,
@@ -63,16 +124,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       status = existing.status
     } = body;
 
-    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    const sanitizedItems = (!items || items.length === 0)
+      ? [{ categoryName: 'General', type: 'Design & Work', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      : items;
 
     const calculated = calculateFinancials({
-      items,
+      items: sanitizedItems,
       additionalCharges,
       discountType,
-      discountValue,
+      discountValue: Number(discountValue) || 0,
       taxMode,
-      gstRate
+      gstRate: Number(gstRate) || 18
     });
 
     // Replace items and additional charges in transaction
@@ -85,13 +147,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         data: {
           customerId,
           projectId,
-          projectLocation: project?.location || customer?.address,
-          customerPhone: customer?.phone,
-          customerEmail: customer?.email,
-          customerAddress: customer?.address,
-          customerGstin: customer?.gstin,
-          quotationDate: quotationDate ? new Date(quotationDate) : existing.quotationDate,
-          validUntil: validUntil ? new Date(validUntil) : existing.validUntil,
+          projectLocation: body.projectLocation?.trim() || project?.location || customer?.address || null,
+          customerPhone: body.customerPhone?.trim() || customer?.phone || null,
+          customerEmail: body.customerEmail?.trim() || customer?.email || null,
+          customerAddress: body.customerAddress?.trim() || customer?.address || null,
+          customerGstin: body.customerGstin?.trim() || customer?.gstin || null,
+          quotationDate: parseSafeDate(quotationDate, existing.quotationDate),
+          validUntil: parseSafeDate(validUntil, existing.validUntil),
           taxMode,
           discountType,
           discountValue: Number(discountValue) || 0,
@@ -108,25 +170,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           status,
           notes: notes !== undefined ? notes : existing.notes,
           termsAndConditions: termsAndConditions !== undefined ? termsAndConditions : existing.termsAndConditions,
-          updatedBy: session.name,
+          updatedBy: sessionUser,
           items: {
             create: calculated.items.map((it, idx) => ({
               categoryId: it.categoryId || null,
-              categoryName: it.categoryName || 'General',
-              type: it.type || '',
-              description: it.description || '',
-              quantity: it.quantity,
-              unit: it.unit || 'Nos',
-              rate: it.rate,
-              amount: it.amount,
+              categoryName: (it.categoryName || 'General').trim(),
+              type: (it.type || '').trim(),
+              description: (it.description || '').trim(),
+              quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
+              unit: (it.unit || 'Nos').trim(),
+              rate: isNaN(Number(it.rate)) ? 0 : Number(it.rate),
+              amount: isNaN(Number(it.amount)) ? 0 : Number(it.amount),
               sortOrder: idx + 1
             }))
           },
           additionalCharges: {
-            create: (additionalCharges || []).map((ch: any) => ({
-              description: ch.description,
-              amount: Number(ch.amount) || 0
-            }))
+            create: (additionalCharges || [])
+              .filter((ch: any) => ch && (ch.description || ch.amount))
+              .map((ch: any) => ({
+                description: String(ch.description || 'Additional Charge').trim(),
+                amount: isNaN(Number(ch.amount)) ? 0 : Number(ch.amount)
+              }))
           }
         },
         include: {
@@ -139,9 +203,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     return NextResponse.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating quotation:', error);
-    return NextResponse.json({ error: 'Failed to update quotation' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to update quotation' }, { status: 500 });
   }
 }
 

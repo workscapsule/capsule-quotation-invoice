@@ -223,37 +223,28 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
     e.preventDefault();
     setErrorMsg('');
 
-    if (!customerName.trim()) {
-      setErrorMsg('Customer Name is required. Please type the customer name.');
-      return;
-    }
+    const resolvedCustName = customerName.trim() || 'Valued Client';
+    const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
-    if (!projectName.trim()) {
-      setErrorMsg('Please enter a Project Name (e.g. "Mr. Ravi Residence").');
-      return;
-    }
-
-    if (items.length === 0) {
-      setErrorMsg('Please add at least one work item.');
-      return;
-    }
-
-    // Verify rate is entered
-    for (let i = 0; i < items.length; i++) {
-      if (!items[i].categoryName) {
-        setErrorMsg(`Item #${i + 1} is missing a category.`);
-        return;
-      }
-      if (items[i].quantity <= 0) {
-        setErrorMsg(`Item #${i + 1} must have a quantity greater than 0.`);
-        return;
-      }
-    }
+    const cleanedItems = items.length === 0
+      ? [{ categoryName: 'Modular Kitchen', type: 'Work Item', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      : items.map(it => ({
+          ...it,
+          categoryName: it.categoryName?.trim() || 'General',
+          type: it.type || '',
+          description: it.description || '',
+          quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
+          unit: it.unit || 'Nos',
+          rate: isNaN(Number(it.rate)) ? 0 : Number(it.rate),
+          amount: (isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity)) * (isNaN(Number(it.rate)) ? 0 : Number(it.rate))
+        }));
 
     setSaving(true);
     try {
       const payload: any = {
-        customerName: customerName.trim(),
+        customerId: initialData?.customerId,
+        projectId: initialData?.projectId,
+        customerName: resolvedCustName,
         customerPhone: customerPhone.trim(),
         customerAltPhone: customerAltPhone.trim(),
         customerEmail: customerEmail.trim(),
@@ -262,17 +253,17 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
         customerState: customerState.trim(),
         customerPincode: customerPincode.trim(),
         customerGstin: customerGstin.trim(),
-        projectName: projectName.trim(),
+        projectName: resolvedProjName,
         projectLocation: projectLocation.trim() || customerAddress.trim(),
         quotationDate,
         validUntil,
         status,
         taxMode,
         discountType,
-        discountValue,
-        gstRate,
-        items,
-        additionalCharges,
+        discountValue: Number(discountValue) || 0,
+        gstRate: Number(gstRate) || 18,
+        items: cleanedItems,
+        additionalCharges: (additionalCharges || []).filter(c => c && (c.description || c.amount)),
         notes,
         termsAndConditions
       };
@@ -286,15 +277,16 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to save quotation');
+        throw new Error(data.error || `HTTP ${res.status}: Failed to save quotation`);
       }
 
       router.push(`/quotations/${data.id || initialData.id}`);
       router.refresh();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error occurred while saving');
+      console.error('Error saving quotation:', err);
+      setErrorMsg(err.message || 'Error occurred while saving quotation');
     } finally {
       setSaving(false);
     }

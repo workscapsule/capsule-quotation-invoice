@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
       response.cookies.set('capsule_auth', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.COOKIE_SECURE === 'true',
         sameSite: 'lax',
         path: '/',
         maxAge: 60 * 60 * 24 * 7
@@ -90,10 +90,10 @@ export async function POST(req: Request) {
       }
     });
 
-    // Set HTTP-only secure cookie
+    // Set HTTP-only cookie
     response.cookies.set('capsule_auth', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.COOKIE_SECURE === 'true',
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 7 // 7 days
