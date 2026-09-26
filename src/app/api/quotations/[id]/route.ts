@@ -175,6 +175,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             create: calculated.items.map((it, idx) => ({
               categoryId: it.categoryId || null,
               categoryName: (it.categoryName || 'General').trim(),
+              imageUrl: it.imageUrl || null,
               type: (it.type || '').trim(),
               description: (it.description || '').trim(),
               quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),

@@ -2,6 +2,7 @@ export interface LineItemInput {
   id?: string;
   categoryId?: string | null;
   categoryName: string;
+  imageUrl?: string | null; // Product image path or URL
   type: string;         // FREE-TEXT user input
   description: string;  // FREE-TEXT user input
   quantity: number;     // User entered

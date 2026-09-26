@@ -2,14 +2,18 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency, formatDate } from './formatters';
 import { numberToWordsINR } from './numberToWords';
+import { resolveProductImage, getBase64ImageFromUrl } from './productImages';
+import { generateUpiQrDataUrl } from './upiQr';
 
 export interface PDFGeneratorOptions {
   data: any;
   type: 'QUOTATION' | 'INVOICE';
   logoBase64?: string;
+  itemImagesBase64?: (string | null)[];
+  upiQrBase64?: string;
 }
 
-export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): jsPDF {
+export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBase64 }: PDFGeneratorOptions): jsPDF {
   const isQuotation = type === 'QUOTATION';
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -40,31 +44,9 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
   };
 
   // --- 1. TOP HEADER (MODERN EDITORIAL DESIGN) ---
-  // Large bold tracked title on Left
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.setTextColor(22, 22, 22);
-  const titleText = isQuotation ? 'QUOTATION' : 'INVOICE';
-  doc.text(titleText, margin, margin + 9, { charSpace: 2 });
-
-  // Company branding & contact below title
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(55, 55, 55);
-  doc.text('CAPSULE COMPANY  •  YOUR SPACE MAKER', margin, margin + 15);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(95, 95, 95);
-  const addressLines = doc.splitTextToSize(company.address, 115);
-  doc.text(addressLines, margin, margin + 19);
-
-  const contactY = margin + 19 + addressLines.length * 3.1;
-  doc.text(`Phone: ${company.phone}  |  Email: ${company.email}  |  GSTIN: ${company.gstin || '29ABCDE1234F1Z5'}`, margin, contactY);
-
-  // Circular Logo on Top Right
-  const logoSize = 27;
-  const logoX = pageWidth - margin - logoSize;
+  // Circular Logo on Left
+  const logoSize = 26;
+  const logoX = margin;
   const logoY = margin;
 
   if (logoBase64) {
@@ -84,120 +66,246 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
     }
   }
 
+  // Mention below logo on Left:
+  const logoCenterX = logoX + logoSize / 2;
+  const brandNameY = logoY + logoSize + 3.2;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(25, 25, 25);
+  doc.text(company.companyName || 'Capsule Company', logoCenterX, brandNameY, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.2);
+  doc.setTextColor(110, 110, 110);
+  doc.text(company.tagline || 'Your Space Maker', logoCenterX, brandNameY + 3.2, { align: 'center' });
+
+  // Large bold tracked title on Right
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(22, 22, 22);
+  const titleText = isQuotation ? 'QUOTATION' : 'INVOICE';
+  doc.text(titleText, pageWidth - margin, margin + 7.5, { align: 'right', charSpace: 1.5 });
+
+  // Company Name on Right
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(25, 25, 25);
+  doc.text((company.companyName || 'CAPSULE COMPANY').toUpperCase(), pageWidth - margin, margin + 12.2, { align: 'right' });
+
+  // Company address below company name on Right
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(95, 95, 95);
+  const addressLines = doc.splitTextToSize(company.address, 95);
+  let addrY = margin + 16;
+  for (let i = 0; i < addressLines.length; i++) {
+    doc.text(addressLines[i], pageWidth - margin, addrY, { align: 'right' });
+    addrY += 3.1;
+  }
+
+  const contactY = addrY + 0.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Phone: ${company.phone}  |  Email: ${company.email}`, pageWidth - margin, contactY, { align: 'right' });
+  let finalHeaderRightY = contactY;
+  if (company.gstin) {
+    finalHeaderRightY += 3.2;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`GSTIN: ${company.gstin}`, pageWidth - margin, finalHeaderRightY, { align: 'right' });
+  }
+
   // Header separator line
-  const dividerY = Math.max(contactY + 4, logoY + logoSize + 2);
+  const leftHeaderBottomY = brandNameY + 5;
+  const dividerY = Math.max(finalHeaderRightY + 4, leftHeaderBottomY);
   doc.setDrawColor(225, 225, 225);
   doc.setLineWidth(0.3);
   doc.line(margin, dividerY, pageWidth - margin, dividerY);
 
   // --- 2. PARTIES & METADATA SECTION ---
-  const metaStartY = dividerY + 4.5;
+  const metaStartY = dividerY + 3.5;
+  const colWidth = contentWidth / 4;
 
-  // Left Column: ISSUED TO
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(25, 25, 25);
-  doc.text('ISSUED TO:', margin, metaStartY, { charSpace: 1 });
+  // Metadata strip with light fill
+  doc.setFillColor(250, 250, 250);
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(margin, metaStartY, contentWidth, 9.5, 1, 1, 'FD');
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(15, 15, 15);
-  doc.text(data.customer?.name || 'Valued Client', margin, metaStartY + 4.5);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(80, 80, 80);
-  const projName = data.project?.name || 'Interior Work';
-  const projLoc = data.projectLocation || data.project?.location || 'Bengaluru';
-  doc.text(`Project: ${projName} (${projLoc})`, margin, metaStartY + 8.5);
-
-  const custAddr = data.customerAddress || data.customer?.address || 'Site Address';
-  const custAddrLines = doc.splitTextToSize(custAddr, 82);
-  doc.text(custAddrLines.slice(0, 2), margin, metaStartY + 12.2);
-
-  const custContactY = metaStartY + 12.2 + Math.min(custAddrLines.length, 2) * 3.2;
-  const custPhone = data.customerPhone || data.customer?.phone || '-';
-  const custEmail = data.customerEmail || data.customer?.email || '';
-  const custGstin = data.customerGstin ? `  |  GSTIN: ${data.customerGstin}` : '';
-  doc.text(`Phone: ${custPhone}${custEmail ? `  |  Email: ${custEmail}` : ''}${custGstin}`, margin, custContactY);
-
-  // Right Column: DOCUMENT METADATA
-  const rightMetaX = pageWidth - margin - 58;
-  const drawMetaRow = (label: string, value: string, yPos: number, isAccent = false) => {
+  const drawMetaCol = (colIndex: number, label: string, value: string, isMono = false) => {
+    const colX = margin + colIndex * colWidth + 3;
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.8);
+    doc.setTextColor(110, 110, 110);
+    doc.text(label, colX, metaStartY + 3.5, { charSpace: 0.3 });
+
+    doc.setFont('helvetica', isMono ? 'bold' : 'normal');
     doc.setFontSize(7);
-    doc.setTextColor(90, 90, 90);
-    doc.text(label, rightMetaX, yPos, { charSpace: 0.5 });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    if (isAccent) doc.setTextColor(179, 115, 86);
-    else doc.setTextColor(20, 20, 20);
-    doc.text(value, pageWidth - margin, yPos, { align: 'right' });
+    doc.setTextColor(25, 25, 25);
+    doc.text(value, colX, metaStartY + 7.5);
   };
 
-  let rY = metaStartY + 0.5;
   if (isQuotation) {
-    drawMetaRow('QUOTATION NO:', data.quotationNumber || 'CAP-QTN-0001', rY);
-    rY += 4.2;
-    drawMetaRow('DATE:', formatDate(data.quotationDate), rY);
-    rY += 4.2;
-    drawMetaRow('VALID UNTIL:', formatDate(data.validUntil), rY);
-    rY += 4.2;
-    drawMetaRow('TAX REGIME:', data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)', rY);
+    drawMetaCol(0, 'QUOTATION NO:', data.quotationNumber || 'CAP-QTN-0001', true);
+    drawMetaCol(1, 'DATE:', formatDate(data.quotationDate));
+    drawMetaCol(2, 'VALID UNTIL:', formatDate(data.validUntil));
+    drawMetaCol(3, 'TAX REGIME:', data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)');
   } else {
-    drawMetaRow('INVOICE NO:', data.invoiceNumber || 'CAP-INV-0001', rY);
-    rY += 4.2;
-    drawMetaRow('INVOICE DATE:', formatDate(data.invoiceDate), rY);
-    rY += 4.2;
-    drawMetaRow('DUE DATE:', formatDate(data.dueDate), rY);
-    rY += 4.2;
+    drawMetaCol(0, 'INVOICE NO:', data.invoiceNumber || 'CAP-INV-0001', true);
+    drawMetaCol(1, 'INVOICE DATE:', formatDate(data.invoiceDate));
+    drawMetaCol(2, 'DUE DATE:', formatDate(data.dueDate));
     const invStatus = data.status || 'ISSUED';
-    drawMetaRow('STATUS:', invStatus, rY, true);
-    if (data.quotation?.quotationNumber) {
-      rY += 4.2;
-      drawMetaRow('REF QUOTE:', data.quotation.quotationNumber, rY);
-    }
+    drawMetaCol(3, 'STATUS:', invStatus, true);
   }
 
+  // Two-column Box: BILL TO / CUSTOMER DETAILS & PROJECT & SITE LOCATION
+  const boxY = metaStartY + 12;
+  const dividerX = margin + contentWidth / 2;
+  const colHalfWidth = contentWidth / 2 - 7;
+
+  const custName = data.customer?.name || 'Valued Client';
+  const custAddr = data.customerAddress || data.customer?.address || 'Site Address';
+  const custAddrLines = doc.splitTextToSize(custAddr, colHalfWidth).slice(0, 2);
+  const custPhone = data.customerPhone || data.customer?.phone || '-';
+  const custEmail = data.customerEmail || data.customer?.email || '';
+  const custGstin = data.customerGstin;
+
+  const projName = data.project?.name || 'Interior Work';
+  const projLoc = data.projectLocation || data.project?.location || 'Bengaluru';
+  const projType = data.project?.projectType || 'Residential';
+  const projId = data.project?.projectId || (data.project?.id ? `PRJ-${data.project.id.slice(-4).toUpperCase()}` : 'PRJ-001');
+
+  // Compute box height
+  let leftLineCount = 2 + custAddrLines.length + 1 + (custEmail ? 1 : 0) + (custGstin ? 1 : 0);
+  const boxHeight = Math.max(26, 12 + leftLineCount * 3.1);
+
+  // Outer container border
+  doc.setDrawColor(215, 215, 215);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(margin, boxY, contentWidth, boxHeight, 1.5, 1.5, 'S');
+
+  // Vertical divider between columns
+  doc.setDrawColor(225, 225, 225);
+  doc.setLineWidth(0.2);
+  doc.line(dividerX, boxY + 2.5, dividerX, boxY + boxHeight - 2.5);
+
+  // --- Left Column: BILL TO / CUSTOMER DETAILS ---
+  const leftX = margin + 3.5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(110, 105, 100);
+  doc.text('BILL TO / CUSTOMER DETAILS', leftX, boxY + 4.2, { charSpace: 0.4 });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 15, 15);
+  doc.text(custName, leftX, boxY + 8.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(80, 80, 80);
+  let curLeftY = boxY + 12.2;
+  for (let i = 0; i < custAddrLines.length; i++) {
+    doc.text(custAddrLines[i], leftX, curLeftY);
+    curLeftY += 3.2;
+  }
+  doc.text(`Phone: ${custPhone}`, leftX, curLeftY);
+  curLeftY += 3.2;
+  if (custEmail) {
+    doc.text(`Email: ${custEmail}`, leftX, curLeftY);
+    curLeftY += 3.2;
+  }
+  if (custGstin) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(`GSTIN: ${custGstin}`, leftX, curLeftY);
+  }
+
+  // --- Right Column: PROJECT & SITE LOCATION ---
+  const rightX = dividerX + 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(110, 105, 100);
+  doc.text('PROJECT & SITE LOCATION', rightX, boxY + 4.2, { charSpace: 0.4 });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 15, 15);
+  doc.text(projName, rightX, boxY + 8.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Site Location: ${projLoc}`, rightX, boxY + 12.2);
+  doc.text(`Type: ${projType}`, rightX, boxY + 15.4);
+  doc.text(`Project ID: ${projId}`, rightX, boxY + 18.6);
+
   // --- 3. WORK ITEMS TABLE ---
-  const tableStartY = Math.max(custContactY + 4, rY + 4);
+  const tableStartY = boxY + boxHeight + 3.5;
 
   const items = Array.isArray(data.items) ? data.items : [];
   const tableRows = items.map((item: any) => {
     const scopeHeader = `${item.categoryName ? `${item.categoryName}` : ''}${item.type ? ` — ${item.type}` : ''}`;
     const desc = item.description ? `\n${item.description}` : '';
     return [
+      '', // Column 0: Product Image (drawn in didDrawCell)
       scopeHeader + desc,
+      `${item.quantity ?? 1}`,
+      item.unit || 'Nos',
       formatCurrency(item.rate ?? 0),
-      `${item.quantity ?? 1} ${item.unit || 'Nos'}`,
       formatCurrency(item.amount ?? 0)
     ];
   });
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [['DESCRIPTION', 'RATE', 'QTY', 'TOTAL']],
+    head: [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'QTY', 'UNIT', 'RATE', 'TOTAL']],
     body: tableRows,
     theme: 'plain',
     headStyles: {
       textColor: [20, 20, 20],
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 7.2,
       cellPadding: { top: 3, bottom: 3, left: 1, right: 1 },
     },
     bodyStyles: {
       textColor: [40, 40, 40],
       fontSize: 7.2,
-      cellPadding: { top: 2.8, bottom: 2.8, left: 1, right: 1 },
+      cellPadding: { top: 2.5, bottom: 2.5, left: 1, right: 1 },
       valign: 'middle',
+      minCellHeight: 16.5, // ensures consistent height for product image
     },
     columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { cellWidth: 26, halign: 'right' },
-      2: { cellWidth: 24, halign: 'center' },
-      3: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] },
+      0: { cellWidth: 22, halign: 'center' }, // Product Image column
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 15, halign: 'center' }, // QTY
+      3: { cellWidth: 15, halign: 'center' }, // UNIT (between QTY and RATE)
+      4: { cellWidth: 25, halign: 'right' },  // RATE
+      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL
     },
     margin: { left: margin, right: margin },
+    didDrawCell: (hookData) => {
+      if (hookData.section === 'body' && hookData.column.index === 0) {
+        const rowIndex = hookData.row.index;
+        const imgData = itemImagesBase64?.[rowIndex];
+        if (imgData) {
+          try {
+            const imgWidth = 18; // mm
+            const imgHeight = 13.5; // mm (4:3 aspect ratio)
+            const cellX = hookData.cell.x + (hookData.cell.width - imgWidth) / 2;
+            const cellY = hookData.cell.y + (hookData.cell.height - imgHeight) / 2;
+            doc.addImage(imgData, 'JPEG', cellX, cellY, imgWidth, imgHeight);
+
+            // Subtle border around image
+            doc.setDrawColor(215, 215, 215);
+            doc.setLineWidth(0.18);
+            doc.rect(cellX, cellY, imgWidth, imgHeight);
+          } catch (e) {
+            console.warn('Failed to embed product image in PDF table:', e);
+          }
+        }
+      }
+    }
   });
 
   const finalTableY = (doc as any).lastAutoTable?.finalY || tableStartY + 20;
@@ -286,6 +394,8 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
 
   // Left Column: PAYMENT INFO & AMOUNT IN WORDS
   let paymentY = currentY + 1;
+  const paymentStartTopY = paymentY;
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(25, 25, 25);
@@ -301,23 +411,72 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
   paymentY += 3.4;
   doc.text(`Account No.: ${company.accountNumber || '50200034981276'}`, margin, paymentY);
   paymentY += 3.4;
-  doc.text(`IFSC: ${company.ifscCode || 'HDFC0001245'}  |  UPI: ${company.upiId || 'capsulecompany@hdfcbank'}`, margin, paymentY);
+  doc.text(`IFSC: ${company.ifscCode || 'HDFC0001245'}`, margin, paymentY);
+  paymentY += 3.4;
+  doc.text(`UPI ID: ${company.upiId || 'capsulecompany@hdfcbank'}`, margin, paymentY);
   paymentY += 4.5;
 
-  // Amount in words
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.8);
-  doc.setTextColor(50, 50, 50);
-  doc.text('AMOUNT IN WORDS:', margin, paymentY);
-  paymentY += 3.2;
+  const wordsBoxWidth = contentWidth - totalsWidth - 10;
 
+  // Render UPI QR Code if available
+  if (upiQrBase64) {
+    try {
+      const qrSize = 16.5; // mm
+      const qrBoxWidth = qrSize + 4.5;
+      const qrBoxHeight = qrSize + 7.5;
+      const qrBoxX = margin + wordsBoxWidth - qrBoxWidth;
+      const qrBoxY = paymentStartTopY + 0.5;
+
+      // QR container box
+      doc.setDrawColor(215, 215, 215);
+      doc.setLineWidth(0.2);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(qrBoxX, qrBoxY, qrBoxWidth, qrBoxHeight, 1, 1, 'FD');
+
+      // QR Image
+      doc.addImage(upiQrBase64, 'PNG', qrBoxX + 2.25, qrBoxY + 1.8, qrSize, qrSize);
+
+      // Labels below QR
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5);
+      doc.setTextColor(50, 50, 50);
+      doc.text('SCAN TO PAY', qrBoxX + qrBoxWidth / 2, qrBoxY + qrSize + 3.8, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(4.2);
+      doc.setTextColor(110, 110, 110);
+      doc.text('UPI / GPay / PhonePe', qrBoxX + qrBoxWidth / 2, qrBoxY + qrSize + 6, { align: 'center' });
+    } catch (e) {
+      console.warn('Failed to embed UPI QR code in PDF:', e);
+    }
+  }
+
+  // Amount in words (with styled box outline)
+  const words = numberToWordsINR(grandTotal);
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(6.8);
-  doc.setTextColor(85, 85, 85);
-  const words = numberToWordsINR(grandTotal);
-  const wordLines = doc.splitTextToSize(words, contentWidth - totalsWidth - 10);
-  doc.text(wordLines, margin, paymentY);
-  paymentY += wordLines.length * 3.2 + 2;
+  const wordLines = doc.splitTextToSize(words, wordsBoxWidth - 6);
+  const wordsBoxHeight = 4 + 3.2 + wordLines.length * 3.2 + 2;
+
+  // Draw box outline with rounded corners and light fill
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.25);
+  doc.setFillColor(252, 252, 252);
+  doc.roundedRect(margin, paymentY, wordsBoxWidth, wordsBoxHeight, 1.5, 1.5, 'FD');
+
+  // Title inside box
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(40, 40, 40);
+  doc.text('AMOUNT IN WORDS:', margin + 3, paymentY + 3.8);
+
+  // Content inside box
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6.8);
+  doc.setTextColor(70, 70, 70);
+  doc.text(wordLines, margin + 3, paymentY + 7.2);
+
+  paymentY += wordsBoxHeight + 2;
 
   // --- 5. TERMS & SIGNATURE SECTION ---
   const sectionDividerY = Math.max(totalsY, paymentY) + 3;
@@ -366,9 +525,30 @@ export function buildPDFDoc({ data, type, logoBase64 }: PDFGeneratorOptions): js
   return doc;
 }
 
-export async function generateAndDownloadPDF({ data, type, logoBase64 }: PDFGeneratorOptions): Promise<void> {
+export async function generateAndDownloadPDF({ data, type, logoBase64, upiQrBase64 }: PDFGeneratorOptions): Promise<void> {
   const isQuotation = type === 'QUOTATION';
-  const doc = buildPDFDoc({ data, type, logoBase64 });
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  // Pre-fetch and convert item images to base64 for PDF embedding
+  const itemImagesBase64 = await Promise.all(
+    items.map(async (item: any) => {
+      const url = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
+      return getBase64ImageFromUrl(url);
+    })
+  );
+
+  const company = data.companySettings || {};
+  const upiId = company.upiId || 'capsulecompany@hdfcbank';
+  const amount = isQuotation ? undefined : (data.balanceDue ?? data.roundedGrandTotal);
+  const docNumber = isQuotation ? data.quotationNumber : data.invoiceNumber;
+  const finalUpiQr = upiQrBase64 || await generateUpiQrDataUrl({
+    upiId,
+    name: company.accountName || company.companyName || 'CAPSULE COMPANY',
+    amount,
+    note: `${docNumber}`
+  });
+
+  const doc = buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBase64: finalUpiQr });
   const filename = `${isQuotation ? (data.quotationNumber || 'QUOTATION') : (data.invoiceNumber || 'INVOICE')}.pdf`;
 
   if (typeof window !== 'undefined') {

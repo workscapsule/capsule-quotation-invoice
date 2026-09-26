@@ -18,10 +18,13 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Building,
-  Layers
+  Layers,
+  Image as ImageIcon
 } from 'lucide-react';
 import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, DiscountType } from '@/lib/calculations';
 import { formatCurrency } from '@/lib/formatters';
+import { resolveProductImage } from '@/lib/productImages';
+import ProductImageModal from '@/components/ProductImageModal';
 
 interface CustomerOption {
   id: string;
@@ -71,6 +74,7 @@ export default function CategoryProjectItemEntryPage() {
 
   // 2. WORK ITEMS (Multiple items, free-text Type & Description, manual Rate, flexible Unit)
   const [items, setItems] = useState<LineItemInput[]>([]);
+  const [imageModalItemIndex, setImageModalItemIndex] = useState<number | null>(null);
 
   // 3. FINANCIAL TOTALS
   const [discountType, setDiscountType] = useState<DiscountType>('NONE');
@@ -98,6 +102,7 @@ export default function CategoryProjectItemEntryPage() {
         setItems([
           {
             categoryName: initialCategoryName,
+            imageUrl: resolveProductImage(initialCategoryName, '', ''),
             type: '',
             description: '',
             quantity: 1,
@@ -148,6 +153,7 @@ export default function CategoryProjectItemEntryPage() {
       ...prev,
       {
         categoryName: category?.name || (categories[0]?.name || 'Modular Kitchen'),
+        imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''),
         type: '',
         description: '',
         quantity: 1,
@@ -202,10 +208,11 @@ export default function CategoryProjectItemEntryPage() {
     const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
     const cleanedItems = items.length === 0
-      ? [{ categoryName: category?.name || 'Modular Kitchen', type: 'Design & Work', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      ? [{ categoryName: category?.name || 'Modular Kitchen', imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''), type: 'Design & Work', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
       : items.map(it => ({
           ...it,
           categoryName: it.categoryName?.trim() || category?.name || 'General',
+          imageUrl: it.imageUrl || resolveProductImage(it.categoryName, it.type, it.description),
           type: it.type || '',
           description: it.description || '',
           quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
@@ -570,8 +577,9 @@ export default function CategoryProjectItemEntryPage() {
               <thead>
                 <tr className="border-b border-[#E8E2D9] bg-[#F7F4EE] text-[11px] font-bold uppercase tracking-wider text-stone-600">
                   <th className="py-3 px-3 w-10 text-center">#</th>
-                  <th className="py-3 px-3 w-48">Category</th>
-                  <th className="py-3 px-3 w-60">Type (Free Text Input)</th>
+                  <th className="py-3 px-3 w-44">Category</th>
+                  <th className="py-3 px-2 w-28 text-center">Product Image</th>
+                  <th className="py-3 px-3 w-56">Type (Free Text Input)</th>
                   <th className="py-3 px-3">Description (Free Text)</th>
                   <th className="py-3 px-3 w-28 text-right">Quantity</th>
                   <th className="py-3 px-3 w-32">Measurement / Unit</th>
@@ -581,7 +589,9 @@ export default function CategoryProjectItemEntryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E2D9] text-xs">
-                {items.map((item, idx) => (
+                {items.map((item, idx) => {
+                  const currentImg = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
+                  return (
                   <tr key={idx} className="hover:bg-amber-50/20 transition-colors">
                     <td className="py-3 px-3 text-center text-stone-400 font-mono">
                       {idx + 1}
@@ -591,7 +601,13 @@ export default function CategoryProjectItemEntryPage() {
                     <td className="py-3 px-3 align-top">
                       <select
                         value={item.categoryName}
-                        onChange={(e) => updateItem(idx, 'categoryName', e.target.value)}
+                        onChange={(e) => {
+                          const newCat = e.target.value;
+                          updateItem(idx, 'categoryName', newCat);
+                          if (!item.imageUrl) {
+                            updateItem(idx, 'imageUrl', resolveProductImage(newCat, item.type, item.description));
+                          }
+                        }}
                         className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white font-medium focus:ring-1 focus:ring-[#C88A6E]"
                       >
                         {categories.map((c) => (
@@ -603,6 +619,34 @@ export default function CategoryProjectItemEntryPage() {
                           <option value={item.categoryName}>{item.categoryName}</option>
                         )}
                       </select>
+                    </td>
+
+                    {/* Product Image Column */}
+                    <td className="py-3 px-2 align-top text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setImageModalItemIndex(idx)}
+                          className="relative group w-16 h-12 rounded-lg overflow-hidden border border-stone-300 hover:border-[#C88A6E] shadow-2xs hover:shadow-md bg-stone-100 transition-all focus:outline-hidden focus:ring-2 focus:ring-[#C88A6E]"
+                          title="Click to view full image or choose from gallery"
+                        >
+                          <img
+                            src={currentImg}
+                            alt={item.categoryName || 'Product'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <ImageIcon className="w-3.5 h-3.5 text-white" />
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setImageModalItemIndex(idx)}
+                          className="text-[10px] text-[#B37356] hover:text-[#8E4B2F] font-semibold flex items-center gap-0.5"
+                        >
+                          <span>Change</span>
+                        </button>
+                      </div>
                     </td>
 
                     {/* TYPE — FREE TEXT INPUT FIELD (NO FIXED OPTIONS) */}
@@ -691,7 +735,8 @@ export default function CategoryProjectItemEntryPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -946,6 +991,21 @@ export default function CategoryProjectItemEntryPage() {
           </div>
         </div>
       </form>
+
+      {/* Product Image Selection & Preview Modal */}
+      {imageModalItemIndex !== null && items[imageModalItemIndex] && (
+        <ProductImageModal
+          isOpen={true}
+          onClose={() => setImageModalItemIndex(null)}
+          currentImage={items[imageModalItemIndex].imageUrl || undefined}
+          categoryName={items[imageModalItemIndex].categoryName}
+          type={items[imageModalItemIndex].type}
+          description={items[imageModalItemIndex].description}
+          onSelectImage={(newUrl) => {
+            updateItem(imageModalItemIndex, 'imageUrl', newUrl);
+          }}
+        />
+      )}
     </AppShell>
   );
 }

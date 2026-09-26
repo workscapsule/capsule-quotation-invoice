@@ -83,6 +83,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             create: quotation.items.map((it) => ({
               categoryId: it.categoryId,
               categoryName: it.categoryName,
+              imageUrl: it.imageUrl,
               type: it.type,
               description: it.description,
               quantity: it.quantity,

@@ -9,10 +9,13 @@ import {
   Save,
   ArrowLeft,
   Calculator,
-  AlertCircle
+  AlertCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, DiscountType } from '@/lib/calculations';
 import { formatCurrency } from '@/lib/formatters';
+import { resolveProductImage } from '@/lib/productImages';
+import ProductImageModal from '@/components/ProductImageModal';
 
 interface CustomerOption {
   id: string;
@@ -68,12 +71,16 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
       : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
 
+  // Modal state for selecting / previewing product image
+  const [imageModalItemIndex, setImageModalItemIndex] = useState<number | null>(null);
+
   // Items State (Manual rates, free-text type & description)
   const [items, setItems] = useState<LineItemInput[]>(
     initialData?.items && initialData.items.length > 0
       ? initialData.items.map((it: any) => ({
           categoryId: it.categoryId || null,
           categoryName: it.categoryName || 'General',
+          imageUrl: it.imageUrl || null,
           type: it.type || '',
           description: it.description || '',
           quantity: Number(it.quantity) || 1,
@@ -85,6 +92,7 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
       : [
           {
             categoryName: 'Modular Kitchen',
+            imageUrl: '/products/modular-kitchen.jpg',
             type: '',
             description: '',
             quantity: 1,
@@ -166,6 +174,7 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
       ...prev,
       {
         categoryName: defaultCategory,
+        imageUrl: resolveProductImage(defaultCategory, '', ''),
         type: '',
         description: '',
         quantity: 1,
@@ -218,10 +227,11 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
     const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
     const cleanedItems = items.length === 0
-      ? [{ categoryName: 'Modular Kitchen', type: 'Work Item', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      ? [{ categoryName: 'Modular Kitchen', imageUrl: '/products/modular-kitchen.jpg', type: 'Work Item', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
       : items.map(it => ({
           ...it,
           categoryName: it.categoryName?.trim() || 'General',
+          imageUrl: it.imageUrl || resolveProductImage(it.categoryName, it.type, it.description),
           type: it.type || '',
           description: it.description || '',
           quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
@@ -573,12 +583,13 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
 
         {/* Responsive Items Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[850px]">
+          <table className="w-full text-left border-collapse min-w-[950px]">
             <thead>
               <tr className="border-b border-[#E8E2D9] bg-[#F7F4EE] text-[11px] font-bold uppercase tracking-wider text-stone-600">
                 <th className="py-3 px-3 w-10 text-center">#</th>
-                <th className="py-3 px-3 w-48">Category</th>
-                <th className="py-3 px-3 w-52">Type (Free Text)</th>
+                <th className="py-3 px-3 w-44">Category</th>
+                <th className="py-3 px-2 w-28 text-center">Product Image</th>
+                <th className="py-3 px-3 w-48">Type (Free Text)</th>
                 <th className="py-3 px-3">Description / Specs</th>
                 <th className="py-3 px-3 w-24 text-right">Quantity</th>
                 <th className="py-3 px-3 w-28">Unit</th>
@@ -588,7 +599,9 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E8E2D9] text-xs">
-              {items.map((item, idx) => (
+              {items.map((item, idx) => {
+                const currentImg = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
+                return (
                 <tr key={idx} className="hover:bg-amber-50/20 transition-colors">
                   <td className="py-3 px-3 text-center text-stone-400 font-mono">
                     {idx + 1}
@@ -597,7 +610,13 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
                   <td className="py-3 px-3 align-top">
                     <select
                       value={item.categoryName}
-                      onChange={(e) => updateItem(idx, 'categoryName', e.target.value)}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        updateItem(idx, 'categoryName', newCat);
+                        if (!item.imageUrl) {
+                          updateItem(idx, 'imageUrl', resolveProductImage(newCat, item.type, item.description));
+                        }
+                      }}
                       className="w-full text-xs rounded border border-stone-300 p-1.5 bg-white font-medium"
                     >
                       {categories.map((c) => (
@@ -609,6 +628,34 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
                         <option value={item.categoryName}>{item.categoryName}</option>
                       )}
                     </select>
+                  </td>
+
+                  {/* Product Image Column */}
+                  <td className="py-3 px-2 align-top text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setImageModalItemIndex(idx)}
+                        className="relative group w-16 h-12 rounded-lg overflow-hidden border border-stone-300 hover:border-[#C88A6E] shadow-2xs hover:shadow-md bg-stone-100 transition-all focus:outline-hidden focus:ring-2 focus:ring-[#C88A6E]"
+                        title="Click to view full image or choose from gallery"
+                      >
+                        <img
+                          src={currentImg}
+                          alt={item.categoryName || 'Product'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <ImageIcon className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageModalItemIndex(idx)}
+                        className="text-[10px] text-[#B37356] hover:text-[#8E4B2F] font-semibold flex items-center gap-0.5"
+                      >
+                        <span>Change</span>
+                      </button>
+                    </div>
                   </td>
 
                   <td className="py-3 px-3 align-top">
@@ -696,7 +743,8 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -935,6 +983,21 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
           </div>
         </div>
       </div>
+
+      {/* Product Image Selection & Preview Modal */}
+      {imageModalItemIndex !== null && items[imageModalItemIndex] && (
+        <ProductImageModal
+          isOpen={true}
+          onClose={() => setImageModalItemIndex(null)}
+          currentImage={items[imageModalItemIndex].imageUrl || undefined}
+          categoryName={items[imageModalItemIndex].categoryName}
+          type={items[imageModalItemIndex].type}
+          description={items[imageModalItemIndex].description}
+          onSelectImage={(newUrl) => {
+            updateItem(imageModalItemIndex, 'imageUrl', newUrl);
+          }}
+        />
+      )}
     </form>
   );
 }

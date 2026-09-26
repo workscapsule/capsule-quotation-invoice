@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { buildPDFDoc } from '@/lib/pdfGenerator';
+import { resolveProductImage } from '@/lib/productImages';
+import { generateUpiQrDataUrl } from '@/lib/upiQr';
 import fs from 'fs';
 import path from 'path';
 
@@ -19,6 +21,28 @@ function getLogoBase64(): string | undefined {
     console.warn('Failed to read logo file on server:', e);
   }
   return undefined;
+}
+
+function getItemImagesBase64(items: any[]): (string | null)[] {
+  return (items || []).map((item) => {
+    try {
+      const imgUrl = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
+      if (imgUrl.startsWith('/')) {
+        const cleanPath = imgUrl.startsWith('/') ? imgUrl.slice(1) : imgUrl;
+        const filePath = path.join(process.cwd(), 'public', cleanPath);
+        if (fs.existsSync(filePath)) {
+          const fileData = fs.readFileSync(filePath);
+          const ext = path.extname(filePath).slice(1) || 'jpeg';
+          return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${fileData.toString('base64')}`;
+        }
+      } else if (imgUrl.startsWith('data:image/')) {
+        return imgUrl;
+      }
+    } catch (e) {
+      console.warn('Failed to read item image on server:', e);
+    }
+    return null;
+  });
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,10 +67,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const companySettings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
 
+    const upiQrBase64 = await generateUpiQrDataUrl({
+      upiId: companySettings?.upiId || 'capsulecompany@hdfcbank',
+      name: companySettings?.accountName || companySettings?.companyName || 'CAPSULE COMPANY',
+      note: `${quotation.quotationNumber}`
+    });
+
     const doc = buildPDFDoc({
       data: { ...quotation, companySettings },
       type: 'QUOTATION',
-      logoBase64: getLogoBase64()
+      logoBase64: getLogoBase64(),
+      itemImagesBase64: getItemImagesBase64(quotation.items),
+      upiQrBase64
     });
 
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'));

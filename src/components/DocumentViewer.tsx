@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Printer,
@@ -22,6 +22,8 @@ import {
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { numberToWordsINR } from '@/lib/numberToWords';
 import { generateAndDownloadPDF } from '@/lib/pdfGenerator';
+import { resolveProductImage } from '@/lib/productImages';
+import { generateUpiQrDataUrl } from '@/lib/upiQr';
 
 interface DocumentViewerProps {
   type: 'QUOTATION' | 'INVOICE';
@@ -41,6 +43,8 @@ export default function DocumentViewer({
 
   const [downloading, setDownloading] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+  const [upiQrUrl, setUpiQrUrl] = useState<string>('');
 
   const isQuotation = type === 'QUOTATION';
   const company = data.companySettings || {
@@ -60,6 +64,22 @@ export default function DocumentViewer({
     authorizedSignatory: 'For CAPSULE COMPANY (Authorized Signatory)'
   };
 
+  useEffect(() => {
+    let active = true;
+    const upiId = company.upiId || 'capsulecompany@hdfcbank';
+    const amount = isQuotation ? undefined : (data.balanceDue ?? data.roundedGrandTotal);
+    const docNumber = isQuotation ? data.quotationNumber : data.invoiceNumber;
+    generateUpiQrDataUrl({
+      upiId,
+      name: company.accountName || company.companyName || 'CAPSULE COMPANY',
+      amount,
+      note: `${docNumber}`
+    }).then(url => {
+      if (active) setUpiQrUrl(url);
+    });
+    return () => { active = false; };
+  }, [company.upiId, company.accountName, company.companyName, data.balanceDue, data.roundedGrandTotal, isQuotation, data.quotationNumber, data.invoiceNumber]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -67,7 +87,7 @@ export default function DocumentViewer({
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
-      await generateAndDownloadPDF({ data, type });
+      await generateAndDownloadPDF({ data, type, upiQrBase64: upiQrUrl });
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Unable to generate PDF. Please try again.');
@@ -239,127 +259,194 @@ export default function DocumentViewer({
           ref={printRef}
           className="printable-document w-full max-w-[850px] bg-white border border-stone-200 shadow-xl rounded-sm p-8 sm:p-12 text-stone-900 font-sans space-y-6"
         >
-          {/* Top Header: Title & Company on Left, Circular Logo on Right */}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-[0.18em] text-[#1a1a1a] uppercase leading-none mb-2">
-                {isQuotation ? 'QUOTATION' : 'INVOICE'}
-              </h1>
-              <div className="text-[11px] text-stone-500 leading-relaxed max-w-md space-y-0.5">
-                <p className="font-bold text-stone-800 tracking-wider text-[11.5px] uppercase">
-                  Capsule Company • Your Space Maker
+          {/* Top Header: Logo & Brand on Left, Title & Company Address / Contact Details on Right */}
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
+            {/* Circular Logo on Left with Brand Name & Tagline Below */}
+            <div className="flex flex-col items-center shrink-0 self-start">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border border-stone-200 p-1 flex items-center justify-center shrink-0 shadow-xs bg-white">
+                <img
+                  src="/capsule-logo.png"
+                  alt="Capsule Logo"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="mt-2 text-center w-28 sm:w-32">
+                <p className="font-bold text-stone-900 tracking-wide text-xs leading-snug">
+                  Capsule Company
                 </p>
-                <p>{company.address}</p>
-                <p>Phone: {company.phone}  |  Email: {company.email}  |  GSTIN: {company.gstin}</p>
+                <p className="text-[10px] text-stone-500 font-medium tracking-wide mt-0.5">
+                  Your Space Maker
+                </p>
               </div>
             </div>
 
-            {/* Circular Logo on Right */}
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border border-stone-200 p-1 flex items-center justify-center shrink-0 shadow-xs self-start">
-              <img
-                src="/capsule-logo.png"
-                alt="Capsule Logo"
-                className="w-full h-full object-contain"
-              />
+            {/* Document Title, Company Name, Address & Contact Details on Right */}
+            <div className="text-right space-y-1 max-w-sm w-full sm:w-auto">
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-[0.18em] text-[#1a1a1a] uppercase leading-none mb-1">
+                {isQuotation ? 'QUOTATION' : 'INVOICE'}
+              </h1>
+              <p className="font-bold text-stone-900 tracking-wider text-xs uppercase">
+                {company.companyName || 'Capsule Company'}
+              </p>
+              <p className="text-[11px] text-stone-500 leading-relaxed max-w-[300px] ml-auto whitespace-pre-line">
+                {company.address}
+              </p>
+              <p className="text-[11px] text-stone-600 font-medium pt-0.5">
+                Phone: {company.phone}  |  Email: {company.email}
+              </p>
+              {company.gstin && (
+                <p className="text-[11px] text-stone-700 font-semibold">
+                  GSTIN: {company.gstin}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Thin Separator Line */}
           <div className="border-b border-stone-200 pt-1" />
 
-          {/* Parties & Metadata (Two Columns) */}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-6 text-xs">
-            {/* Left: Issued To */}
-            <div className="space-y-1 max-w-sm">
-              <span className="text-[10px] font-bold text-stone-900 tracking-[0.15em] uppercase block">
-                ISSUED TO:
+          {/* Document Metadata Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-2 px-3.5 bg-stone-50/70 border border-stone-200/80 rounded-lg text-xs print:bg-white print:border-stone-300">
+            <div>
+              <span className="text-[10px] font-bold text-stone-500 tracking-wider uppercase block">
+                {isQuotation ? 'QUOTATION NO:' : 'INVOICE NO:'}
               </span>
-              <p className="font-bold text-sm text-stone-950">{data.customer?.name}</p>
-              <p className="text-stone-600 font-medium">
-                Project: {data.project?.name} ({data.projectLocation || data.project?.location || 'Bengaluru'})
-              </p>
-              <p className="text-stone-500 leading-relaxed">
-                {data.customerAddress || data.customer?.address || 'Site Address'}
-              </p>
-              <p className="text-stone-500">
-                Phone: {data.customerPhone || data.customer?.phone || '-'}
-                {data.customerEmail ? `  |  Email: ${data.customerEmail}` : ''}
-              </p>
-              {data.customerGstin && (
-                <p className="text-stone-700 font-semibold">GSTIN: {data.customerGstin}</p>
-              )}
+              <span className="font-bold font-mono text-stone-900 text-sm">
+                {isQuotation ? data.quotationNumber : data.invoiceNumber}
+              </span>
             </div>
-
-            {/* Right: Metadata */}
-            <div className="w-full sm:w-64 space-y-1.5 text-xs text-right">
-              <div className="flex justify-between sm:justify-end sm:gap-6 items-baseline">
-                <span className="text-[10.5px] font-bold text-stone-700 tracking-wider uppercase">
-                  {isQuotation ? 'QUOTATION NO:' : 'INVOICE NO:'}
-                </span>
-                <span className="font-bold font-mono text-stone-950 text-sm">
-                  {isQuotation ? data.quotationNumber : data.invoiceNumber}
-                </span>
-              </div>
-              <div className="flex justify-between sm:justify-end sm:gap-6 items-baseline">
-                <span className="text-[10.5px] font-bold text-stone-700 tracking-wider uppercase">DATE:</span>
-                <span className="text-stone-800 font-medium">
-                  {formatDate(isQuotation ? data.quotationDate : data.invoiceDate)}
-                </span>
-              </div>
-              <div className="flex justify-between sm:justify-end sm:gap-6 items-baseline">
-                <span className="text-[10.5px] font-bold text-stone-700 tracking-wider uppercase">
-                  {isQuotation ? 'VALID UNTIL:' : 'DUE DATE:'}
-                </span>
-                <span className="text-stone-800 font-medium">
-                  {formatDate(isQuotation ? data.validUntil : data.dueDate)}
-                </span>
-              </div>
+            <div>
+              <span className="text-[10px] font-bold text-stone-500 tracking-wider uppercase block">
+                {isQuotation ? 'DATE:' : 'INVOICE DATE:'}
+              </span>
+              <span className="font-medium text-stone-800 text-xs">
+                {formatDate(isQuotation ? data.quotationDate : data.invoiceDate)}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-stone-500 tracking-wider uppercase block">
+                {isQuotation ? 'VALID UNTIL:' : 'DUE DATE:'}
+              </span>
+              <span className="font-medium text-stone-800 text-xs">
+                {formatDate(isQuotation ? data.validUntil : data.dueDate)}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-stone-500 tracking-wider uppercase block">
+                {isQuotation ? 'TAX REGIME:' : 'STATUS:'}
+              </span>
               {isQuotation ? (
-                <div className="flex justify-between sm:justify-end sm:gap-6 items-baseline">
-                  <span className="text-[10.5px] font-bold text-stone-700 tracking-wider uppercase">TAX REGIME:</span>
-                  <span className="text-stone-700 font-medium">
-                    {data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)'}
-                  </span>
-                </div>
+                <span className="font-medium text-stone-800 text-xs">
+                  {data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)'}
+                </span>
               ) : (
-                <>
-                  <div className="flex justify-between sm:justify-end sm:gap-6 items-baseline">
-                    <span className="text-[10.5px] font-bold text-stone-700 tracking-wider uppercase">STATUS:</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${
-                      data.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
-                      data.status === 'PARTIALLY_PAID' ? 'bg-amber-100 text-amber-800' :
-                      'bg-stone-100 text-stone-800'
-                    }`}>
-                      {data.status || 'ISSUED'}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${
+                    data.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
+                    data.status === 'PARTIALLY_PAID' ? 'bg-amber-100 text-amber-800' :
+                    'bg-stone-200 text-stone-800'
+                  }`}>
+                    {data.status || 'ISSUED'}
+                  </span>
                   {data.quotation?.quotationNumber && (
-                    <div className="flex justify-between sm:justify-end sm:gap-6 items-baseline">
-                      <span className="text-[10.5px] font-bold text-stone-700 tracking-wider uppercase">REF QUOTE:</span>
-                      <span className="font-mono text-stone-700 font-semibold">{data.quotation.quotationNumber}</span>
-                    </div>
+                    <span className="text-[10.5px] text-stone-500 font-mono">
+                      (Ref: {data.quotation.quotationNumber})
+                    </span>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
 
-          {/* WORK ITEMS TABLE (MINIMALIST HORIZONTAL RULE AESTHETIC) */}
+          {/* Separate Two-Column Box: BILL TO / CUSTOMER DETAILS & PROJECT & SITE LOCATION */}
+          <div className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5 shadow-2xs print:border-stone-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-stone-200">
+              {/* Left Column: BILL TO / CUSTOMER DETAILS */}
+              <div className="space-y-1.5 text-xs pr-0 sm:pr-4">
+                <span className="text-[10px] font-bold text-stone-500 tracking-wider uppercase block">
+                  BILL TO / CUSTOMER DETAILS
+                </span>
+                <p className="font-bold text-sm text-stone-950">
+                  {data.customer?.name || 'Valued Client'}
+                </p>
+                {(data.customerAddress || data.customer?.address) && (
+                  <p className="text-stone-600 leading-relaxed text-xs">
+                    {data.customerAddress || data.customer?.address}
+                  </p>
+                )}
+                {(data.customerPhone || data.customer?.phone) && (
+                  <p className="text-stone-600 text-xs">
+                    Phone: {data.customerPhone || data.customer?.phone}
+                  </p>
+                )}
+                {(data.customerEmail || data.customer?.email) && (
+                  <p className="text-stone-600 text-xs">
+                    Email: {data.customerEmail || data.customer?.email}
+                  </p>
+                )}
+                {data.customerGstin && (
+                  <p className="text-stone-700 font-medium text-xs">
+                    GSTIN: {data.customerGstin}
+                  </p>
+                )}
+              </div>
+
+              {/* Right Column: PROJECT & SITE LOCATION */}
+              <div className="space-y-1.5 text-xs pt-4 sm:pt-0 pl-0 sm:pl-6">
+                <span className="text-[10px] font-bold text-stone-500 tracking-wider uppercase block">
+                  PROJECT & SITE LOCATION
+                </span>
+                <p className="font-bold text-sm text-stone-950">
+                  {data.project?.name || 'Interior Work'}
+                </p>
+                <p className="text-stone-600 text-xs">
+                  Site Location: {data.projectLocation || data.project?.location || 'Bengaluru'}
+                </p>
+                <p className="text-stone-600 text-xs">
+                  Type: {data.project?.projectType || 'Residential'}
+                </p>
+                <p className="text-stone-600 text-xs font-mono">
+                  Project ID: {data.project?.projectId || (data.project?.id ? `PRJ-${data.project.id.slice(-4).toUpperCase()}` : 'PRJ-001')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* WORK ITEMS TABLE (MINIMALIST HORIZONTAL RULE AESTHETIC WITH PRODUCT IMAGE & UNIT) */}
           <div className="overflow-x-auto pt-2">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-t-2 border-b border-stone-800 text-[10.5px] uppercase tracking-wider font-bold text-stone-900">
-                  <th className="py-2.5 px-1">DESCRIPTION</th>
-                  <th className="py-2.5 px-2 text-right w-28">RATE</th>
-                  <th className="py-2.5 px-2 text-center w-24">QTY</th>
-                  <th className="py-2.5 px-1 text-right w-32">TOTAL</th>
+                  <th className="py-2.5 px-2 w-24 text-center">PRODUCT IMAGE</th>
+                  <th className="py-2.5 px-2">TYPE & WORK SPECIFICATIONS</th>
+                  <th className="py-2.5 px-2 text-center w-16">QTY</th>
+                  <th className="py-2.5 px-2 text-center w-16">UNIT</th>
+                  <th className="py-2.5 px-2 text-right w-24">RATE</th>
+                  <th className="py-2.5 px-2 text-right w-28">TOTAL</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {data.items?.map((item: any, idx: number) => (
+                {data.items?.map((item: any, idx: number) => {
+                  const productImg = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
+                  const title = `${item.categoryName || 'Item'}${item.type ? ` — ${item.type}` : ''}`;
+                  return (
                   <tr key={idx} className="align-middle">
-                    <td className="py-3 px-1">
-                      <div className="font-bold text-stone-900">
+                    <td className="py-2.5 px-2 text-center align-middle w-24">
+                      <div
+                        onClick={() => setPreviewImage({ url: productImg, title })}
+                        className="w-18 h-13 sm:w-20 sm:h-14 mx-auto rounded-md overflow-hidden border border-stone-200 bg-stone-50 shadow-2xs cursor-pointer hover:border-[#C88A6E] transition-colors"
+                        title="Click to view full image"
+                      >
+                        <img
+                          src={productImg}
+                          alt={title}
+                          className="w-full h-full object-cover print:object-cover"
+                          loading="eager"
+                        />
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-2 align-middle">
+                      <div className="font-bold text-stone-900 text-xs">
                         {item.categoryName}{item.type ? ` — ${item.type}` : ''}
                       </div>
                       {item.description && (
@@ -368,17 +455,21 @@ export default function DocumentViewer({
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-2 text-right font-mono text-stone-700">
+                    <td className="py-2.5 px-2 text-center font-medium text-stone-800 align-middle">
+                      {item.quantity}
+                    </td>
+                    <td className="py-2.5 px-2 text-center text-stone-600 font-medium text-[11px] align-middle">
+                      {item.unit || 'Nos'}
+                    </td>
+                    <td className="py-2.5 px-2 text-right font-mono text-stone-700 align-middle">
                       {formatCurrency(item.rate)}
                     </td>
-                    <td className="py-3 px-2 text-center font-medium text-stone-700">
-                      {item.quantity} {item.unit || 'Nos'}
-                    </td>
-                    <td className="py-3 px-1 text-right font-mono font-bold text-stone-950">
+                    <td className="py-2.5 px-2 text-right font-mono font-bold text-stone-950 align-middle">
                       {formatCurrency(item.amount)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             <div className="border-b-2 border-stone-800 w-full" />
@@ -389,24 +480,45 @@ export default function DocumentViewer({
             <div className="flex flex-col sm:flex-row justify-between items-start gap-8">
               {/* Left Column: Payment Info & Amount in Words */}
               <div className="w-full sm:flex-1 space-y-3 text-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-stone-900 tracking-[0.15em] uppercase block mb-1">
-                    PAYMENT INFO:
-                  </span>
-                  <div className="text-[11px] text-stone-600 space-y-0.5 leading-relaxed">
-                    <p>Bank: <span className="font-medium text-stone-800">{company.bankName || 'HDFC Bank'}</span></p>
-                    <p>Account Name: <span className="font-medium text-stone-800">{company.accountName || 'CAPSULE COMPANY'}</span></p>
-                    <p>Account No.: <span className="font-mono font-bold text-stone-900">{company.accountNumber || '50200034981276'}</span></p>
-                    <p>IFSC: <span className="font-mono font-bold text-stone-900">{company.ifscCode || 'HDFC0001245'}</span>  |  UPI: <span className="font-mono text-stone-800">{company.upiId || 'capsulecompany@hdfcbank'}</span></p>
+                {/* Payment Info & UPI QR Code */}
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4 max-w-md">
+                  <div className="flex-1 space-y-0.5">
+                    <span className="text-[10px] font-bold text-stone-900 tracking-[0.15em] uppercase block mb-1">
+                      PAYMENT INFO:
+                    </span>
+                    <div className="text-[11px] text-stone-600 space-y-0.5 leading-relaxed">
+                      <p>Bank: <span className="font-medium text-stone-800">{company.bankName || 'HDFC Bank'}</span></p>
+                      <p>Account Name: <span className="font-medium text-stone-800">{company.accountName || 'CAPSULE COMPANY'}</span></p>
+                      <p>Account No.: <span className="font-mono font-bold text-stone-900">{company.accountNumber || '50200034981276'}</span></p>
+                      <p>IFSC: <span className="font-mono font-bold text-stone-900">{company.ifscCode || 'HDFC0001245'}</span></p>
+                      <p>UPI ID: <span className="font-mono text-stone-800 font-semibold">{company.upiId || 'capsulecompany@hdfcbank'}</span></p>
+                    </div>
                   </div>
+
+                  {/* UPI QR Code Container */}
+                  {upiQrUrl && (
+                    <div className="flex flex-col items-center bg-white border border-stone-300 rounded-lg p-2 shrink-0 shadow-2xs print:border-stone-400">
+                      <img
+                        src={upiQrUrl}
+                        alt="Scan UPI QR to Pay"
+                        className="w-[72px] h-[72px] object-contain"
+                      />
+                      <span className="text-[8.5px] font-bold text-stone-800 tracking-wider uppercase mt-1">
+                        SCAN TO PAY
+                      </span>
+                      <span className="text-[7.5px] text-stone-500 font-medium">
+                        UPI / GPay / PhonePe
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Amount in Words */}
-                <div className="pt-1">
-                  <span className="text-[10px] font-bold text-stone-700 tracking-wider uppercase block">
+                {/* Amount in Words (Box Outline) */}
+                <div className="p-3 rounded-lg border border-stone-300 bg-stone-50/70 print:bg-white print:border-stone-400 max-w-md shadow-2xs">
+                  <span className="text-[10px] font-bold text-stone-800 tracking-wider uppercase block">
                     AMOUNT IN WORDS:
                   </span>
-                  <p className="text-[11px] text-stone-600 italic mt-0.5 font-serif">
+                  <p className="text-[11px] text-stone-700 italic mt-0.5 font-serif leading-relaxed">
                     {numberToWordsINR(data.roundedGrandTotal)}
                   </p>
                 </div>
@@ -567,6 +679,35 @@ export default function DocumentViewer({
               >
                 <span>{converting ? 'Converting...' : 'Confirm & Generate Invoice'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image Preview Modal (Non-print) */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs no-print cursor-pointer animate-fadeIn"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl border border-stone-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+              <span className="text-xs font-bold text-stone-800">{previewImage.title}</span>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="w-7 h-7 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="aspect-4/3 w-full bg-stone-100 overflow-hidden">
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
         </div>
