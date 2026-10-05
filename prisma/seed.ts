@@ -34,7 +34,7 @@ async function main() {
       tagline: "YOUR SPACE MAKER",
       logoUrl: "/capsule-logo.png",
       address: "N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024",
-      phone: "+91 96321 24422",
+      phone: "9187924723",
       email: "Workscapsule@gmail.com",
       website: ""
     },
@@ -44,7 +44,7 @@ async function main() {
       tagline: "YOUR SPACE MAKER",
       logoUrl: "/capsule-logo.png",
       address: "N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024",
-      phone: "+91 96321 24422",
+      phone: "9187924723",
       email: "Workscapsule@gmail.com",
       website: "",
       gstin: "29ABCDE1234F1Z5",
@@ -80,7 +80,7 @@ async function main() {
       email: "capsuleoffice@gmail.com",
       passwordHash: officePassword,
       role: "ADMIN",
-      phone: "+91 96321 24422"
+      phone: "9187924723"
     }
   });
 

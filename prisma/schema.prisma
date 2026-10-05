@@ -220,7 +220,7 @@ model CompanySettings {
   tagline             String   @default("YOUR SPACE MAKER")
   logoUrl             String   @default("/capsule-logo.png")
   address             String   @default("N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024")
-  phone               String   @default("+91 96321 24422")
+  phone               String   @default("9187924723")
   email               String   @default("Workscapsule@gmail.com")
   website             String   @default("")
   gstin               String   @default("29ABCDE1234F1Z5")

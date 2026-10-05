@@ -27,7 +27,7 @@ export async function POST(req: Request) {
             email: 'capsuleoffice@gmail.com',
             passwordHash,
             role: 'ADMIN',
-            phone: '+91 96321 24422'
+            phone: '9187924723'
           }
         });
       }

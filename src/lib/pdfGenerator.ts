@@ -30,7 +30,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     companyName: 'Capsule Company',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024',
-    phone: '+91 96321 24422',
+    phone: '9187924723',
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '29ABCDE1234F1Z5',
