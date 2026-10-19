@@ -70,6 +70,13 @@ export default function AppShell({ children }: AppShellProps) {
               <Plus className="w-3.5 h-3.5" />
               <span>+ Invoice</span>
             </Link>
+            <Link
+              href="/receipts/new"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Receipt</span>
+            </Link>
           </div>
         </header>
 

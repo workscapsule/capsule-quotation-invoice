@@ -42,3 +42,17 @@ export function toInputDate(date: string | Date | null | undefined): string {
   if (isNaN(d.getTime())) return '';
   return d.toISOString().split('T')[0];
 }
+
+/**
+ * Format Date strictly to DD-MM-YYYY format (e.g. 19-10-2026)
+ */
+export function formatDateDDMMYYYY(date: string | Date | null | undefined): string {
+  if (!date) return '-';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+

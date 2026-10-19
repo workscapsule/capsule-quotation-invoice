@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   LogOut,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  FileCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -50,6 +51,7 @@ export default function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) 
     { name: 'Categories', href: '/categories', icon: Tags },
     { name: 'Quotations', href: '/quotations', icon: FileSpreadsheet },
     { name: 'Invoices', href: '/invoices', icon: Receipt },
+    { name: 'Receipt Vouchers', href: '/receipts', icon: FileCheck },
     { name: 'Payments', href: '/payments', icon: CreditCard },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },

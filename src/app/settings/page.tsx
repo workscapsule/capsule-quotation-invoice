@@ -14,16 +14,17 @@ export default function SettingsPage() {
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '',
-    bankName: '',
-    accountName: '',
-    accountNumber: '',
-    ifscCode: '',
-    branch: '',
-    upiId: '',
+    bankName: 'IDFC FIRST',
+    accountName: 'Mr. Poornesh Bakila Babu',
+    accountNumber: '10177698837',
+    ifscCode: 'IDFB0081101',
+    swiftCode: 'IDFBINBBMUM',
+    branch: 'BANGALORE-BASAVESHWARA NAGAR BRANCH',
+    upiId: 'poornesh43-3@oksbi',
     quotationPrefix: 'CAP-QTN-',
     invoicePrefix: 'CAP-INV-',
     defaultTerms: '',
-    authorizedSignatory: 'For CAPSULE COMPANY (Authorized Signatory)'
+    authorizedSignatory: 'Kishmat Sah Thakuri'
   });
 
   const [loading, setLoading] = useState(true);
@@ -231,6 +232,16 @@ export default function SettingsPage() {
                 type="text"
                 value={form.ifscCode || ''}
                 onChange={(e) => handleChange('ifscCode', e.target.value)}
+                className="w-full rounded-lg border border-stone-300 p-2.5 bg-white font-mono font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-stone-700 mb-1">SWIFT Code</label>
+              <input
+                type="text"
+                value={form.swiftCode || ''}
+                onChange={(e) => handleChange('swiftCode', e.target.value)}
                 className="w-full rounded-lg border border-stone-300 p-2.5 bg-white font-mono font-bold"
               />
             </div>

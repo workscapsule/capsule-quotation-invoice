@@ -55,23 +55,24 @@ export default function DocumentViewer({
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '29ABCDE1234F1Z5',
-    bankName: 'HDFC Bank',
-    accountName: 'CAPSULE COMPANY',
-    accountNumber: '50200034981276',
-    ifscCode: 'HDFC0001245',
-    branch: 'Indiranagar Branch, Bengaluru',
-    upiId: 'capsulecompany@hdfcbank',
-    authorizedSignatory: 'For CAPSULE COMPANY (Authorized Signatory)'
+    bankName: 'IDFC FIRST',
+    accountName: 'Mr. Poornesh Bakila Babu',
+    accountNumber: '10177698837',
+    ifscCode: 'IDFB0081101',
+    swiftCode: 'IDFBINBBMUM',
+    branch: 'BANGALORE-BASAVESHWARA NAGAR BRANCH',
+    upiId: 'poornesh43-3@oksbi',
+    authorizedSignatory: 'Kishmat Sah Thakuri'
   };
 
   useEffect(() => {
     let active = true;
-    const upiId = company.upiId || 'capsulecompany@hdfcbank';
+    const upiId = company.upiId || 'poornesh43-3@oksbi';
     const amount = isQuotation ? undefined : (data.balanceDue ?? data.roundedGrandTotal);
     const docNumber = isQuotation ? data.quotationNumber : data.invoiceNumber;
     generateUpiQrDataUrl({
       upiId,
-      name: company.accountName || company.companyName || 'CAPSULE COMPANY',
+      name: company.accountName || 'Mr. Poornesh Bakila Babu',
       amount,
       note: `${docNumber}`
     }).then(url => {
@@ -487,11 +488,13 @@ export default function DocumentViewer({
                       PAYMENT INFO:
                     </span>
                     <div className="text-[11px] text-stone-600 space-y-0.5 leading-relaxed">
-                      <p>Bank: <span className="font-medium text-stone-800">{company.bankName || 'HDFC Bank'}</span></p>
-                      <p>Account Name: <span className="font-medium text-stone-800">{company.accountName || 'CAPSULE COMPANY'}</span></p>
-                      <p>Account No.: <span className="font-mono font-bold text-stone-900">{company.accountNumber || '50200034981276'}</span></p>
-                      <p>IFSC: <span className="font-mono font-bold text-stone-900">{company.ifscCode || 'HDFC0001245'}</span></p>
-                      <p>UPI ID: <span className="font-mono text-stone-800 font-semibold">{company.upiId || 'capsulecompany@hdfcbank'}</span></p>
+                      <p>Bank: <span className="font-medium text-stone-800">{company.bankName || 'IDFC FIRST'}</span></p>
+                      <p>Account Name: <span className="font-medium text-stone-800">{company.accountName || 'Mr. Poornesh Bakila Babu'}</span></p>
+                      <p>Account No.: <span className="font-mono font-bold text-stone-900">{company.accountNumber || '10177698837'}</span></p>
+                      <p>IFSC: <span className="font-mono font-bold text-stone-900">{company.ifscCode || 'IDFB0081101'}</span></p>
+                      <p>SWIFT Code: <span className="font-mono font-bold text-stone-900">{company.swiftCode || 'IDFBINBBMUM'}</span></p>
+                      <p>Branch: <span className="text-stone-800 font-medium">{company.branch || 'BANGALORE-BASAVESHWARA NAGAR BRANCH'}</span></p>
+                      <p>UPI ID: <span className="font-mono text-stone-800 font-semibold">{company.upiId || 'poornesh43-3@oksbi'}</span></p>
                     </div>
                   </div>
 
@@ -625,12 +628,16 @@ export default function DocumentViewer({
                 For CAPSULE COMPANY
               </p>
               <div className="h-10 flex items-end justify-end">
-                <span className="text-stone-600 text-sm italic font-serif block border-b border-stone-400 pb-0.5 w-40 text-center">
-                  Authorized Signatory
+                <span className="text-stone-800 text-sm italic font-serif font-semibold block border-b border-stone-400 pb-0.5 w-44 text-center">
+                  {(company.authorizedSignatory && !company.authorizedSignatory.toLowerCase().includes('authorized signatory') && !company.authorizedSignatory.toLowerCase().includes('authorized signature'))
+                    ? company.authorizedSignatory
+                    : 'Kishmat Sah Thakuri'}
                 </span>
               </div>
-              <p className="text-[10px] text-stone-400 mt-1">
-                (Authorized Signatory)
+              <p className="text-[10px] text-stone-500 mt-1">
+                {(company.authorizedSignatory && !company.authorizedSignatory.toLowerCase().includes('authorized signatory') && !company.authorizedSignatory.toLowerCase().includes('authorized signature'))
+                  ? company.authorizedSignatory
+                  : 'Kishmat Sah Thakuri'}
               </p>
             </div>
           </div>

@@ -48,12 +48,13 @@ async function main() {
       email: "Workscapsule@gmail.com",
       website: "",
       gstin: "29ABCDE1234F1Z5",
-      bankName: "HDFC Bank",
-      accountName: "CAPSULE COMPANY",
-      accountNumber: "50200034981276",
-      ifscCode: "HDFC0001245",
-      branch: "Indiranagar Branch, Bengaluru",
-      upiId: "capsulecompany@hdfcbank",
+      bankName: "IDFC FIRST",
+      accountName: "Mr. Poornesh Bakila Babu",
+      accountNumber: "10177698837",
+      ifscCode: "IDFB0081101",
+      swiftCode: "IDFBINBBMUM",
+      branch: "BANGALORE-BASAVESHWARA NAGAR BRANCH",
+      upiId: "poornesh43-3@oksbi",
       quotationPrefix: "CAP-QTN-",
       invoicePrefix: "CAP-INV-",
       defaultTerms: `1. 50% Advance on quotation approval to commence design and procurement.
@@ -62,7 +63,7 @@ async function main() {
 4. Any additional work or scope change beyond this document will be charged extra.
 5. All wood work warranty is 10 years against manufacturing defects; hardware warranty as per manufacturer.
 6. Quotation valid for 30 days from the date of issue.`,
-      authorizedSignatory: "For CAPSULE COMPANY (Authorized Signatory)"
+      authorizedSignatory: "Kishmat Sah Thakuri"
     }
   });
 

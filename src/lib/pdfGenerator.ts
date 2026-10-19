@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency, formatDate } from './formatters';
+import { formatCurrency, formatDate, formatDateDDMMYYYY } from './formatters';
 import { numberToWordsINR } from './numberToWords';
 import { resolveProductImage, getBase64ImageFromUrl } from './productImages';
 import { generateUpiQrDataUrl } from './upiQr';
@@ -34,13 +34,14 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '29ABCDE1234F1Z5',
-    bankName: 'HDFC Bank',
-    accountName: 'CAPSULE COMPANY',
-    accountNumber: '50200034981276',
-    ifscCode: 'HDFC0001245',
-    branch: 'Indiranagar Branch, Bengaluru',
-    upiId: 'capsulecompany@hdfcbank',
-    authorizedSignatory: 'For CAPSULE COMPANY (Authorized Signatory)',
+    bankName: 'IDFC FIRST',
+    accountName: 'Mr. Poornesh Bakila Babu',
+    accountNumber: '10177698837',
+    ifscCode: 'IDFB0081101',
+    swiftCode: 'IDFBINBBMUM',
+    branch: 'BANGALORE-BASAVESHWARA NAGAR BRANCH',
+    upiId: 'poornesh43-3@oksbi',
+    authorizedSignatory: 'Kishmat Sah Thakuri',
   };
 
   // --- 1. TOP HEADER (MODERN EDITORIAL DESIGN) ---
@@ -393,6 +394,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   }
 
   // Left Column: PAYMENT INFO & AMOUNT IN WORDS
+  const wordsBoxWidth = contentWidth - totalsWidth - 10;
   let paymentY = currentY + 1;
   const paymentStartTopY = paymentY;
 
@@ -403,20 +405,28 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   paymentY += 3.8;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.2);
+  doc.setFontSize(7.0);
   doc.setTextColor(75, 75, 75);
-  doc.text(`Bank: ${company.bankName || 'HDFC Bank'}`, margin, paymentY);
-  paymentY += 3.4;
-  doc.text(`Account Name: ${company.accountName || 'CAPSULE COMPANY'}`, margin, paymentY);
-  paymentY += 3.4;
-  doc.text(`Account No.: ${company.accountNumber || '50200034981276'}`, margin, paymentY);
-  paymentY += 3.4;
-  doc.text(`IFSC: ${company.ifscCode || 'HDFC0001245'}`, margin, paymentY);
-  paymentY += 3.4;
-  doc.text(`UPI ID: ${company.upiId || 'capsulecompany@hdfcbank'}`, margin, paymentY);
-  paymentY += 4.5;
-
-  const wordsBoxWidth = contentWidth - totalsWidth - 10;
+  doc.text(`Bank: ${company.bankName || 'IDFC FIRST'}`, margin, paymentY);
+  paymentY += 3.2;
+  doc.text(`Account Name: ${company.accountName || 'Mr. Poornesh Bakila Babu'}`, margin, paymentY);
+  paymentY += 3.2;
+  doc.text(`Account No.: ${company.accountNumber || '10177698837'}`, margin, paymentY);
+  paymentY += 3.2;
+  doc.text(`IFSC: ${company.ifscCode || 'IDFB0081101'}`, margin, paymentY);
+  paymentY += 3.2;
+  if (company.swiftCode || !company.bankName) {
+    doc.text(`SWIFT Code: ${company.swiftCode || 'IDFBINBBMUM'}`, margin, paymentY);
+    paymentY += 3.2;
+  }
+  if (company.branch) {
+    const maxBranchW = wordsBoxWidth - 25;
+    const branchLines = doc.splitTextToSize(`Branch: ${company.branch}`, maxBranchW);
+    doc.text(branchLines[0] || `Branch: ${company.branch}`, margin, paymentY);
+    paymentY += 3.2;
+  }
+  doc.text(`UPI ID: ${company.upiId || 'poornesh43-3@oksbi'}`, margin, paymentY);
+  paymentY += 4.2;
 
   // Render UPI QR Code if available
   if (upiQrBase64) {
@@ -508,19 +518,23 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   doc.setTextColor(20, 20, 20);
   doc.text('For CAPSULE COMPANY', sigX, footerY + 1.5);
 
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(9.5);
-  doc.setTextColor(60, 60, 60);
-  doc.text('Authorized Signatory', sigX, footerY + 8);
+  const signatoryName = (company.authorizedSignatory && !company.authorizedSignatory.toLowerCase().includes('authorized signatory') && !company.authorizedSignatory.toLowerCase().includes('authorized signature'))
+    ? company.authorizedSignatory
+    : 'Kishmat Sah Thakuri';
+
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setFontSize(8.8);
+  doc.setTextColor(40, 40, 40);
+  doc.text(signatoryName, sigX, footerY + 8);
 
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
   doc.line(sigX, footerY + 10, pageWidth - margin, footerY + 10);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(130, 130, 130);
-  doc.text('(Authorized Signatory)', sigX + 6, footerY + 13);
+  doc.setFontSize(6.5);
+  doc.setTextColor(110, 110, 110);
+  doc.text(signatoryName, sigX + 2, footerY + 13);
 
   return doc;
 }
@@ -538,12 +552,12 @@ export async function generateAndDownloadPDF({ data, type, logoBase64, upiQrBase
   );
 
   const company = data.companySettings || {};
-  const upiId = company.upiId || 'capsulecompany@hdfcbank';
+  const upiId = company.upiId || 'poornesh43-3@oksbi';
   const amount = isQuotation ? undefined : (data.balanceDue ?? data.roundedGrandTotal);
   const docNumber = isQuotation ? data.quotationNumber : data.invoiceNumber;
   const finalUpiQr = upiQrBase64 || await generateUpiQrDataUrl({
     upiId,
-    name: company.accountName || company.companyName || 'CAPSULE COMPANY',
+    name: company.accountName || 'Mr. Poornesh Bakila Babu',
     amount,
     note: `${docNumber}`
   });
@@ -572,3 +586,507 @@ export async function generateAndDownloadPDF({ data, type, logoBase64, upiQrBase
     doc.save(filename);
   }
 }
+
+/**
+ * Build Single A4 Page Payment Receipt Voucher PDF
+ */
+export function buildReceiptPDFDoc({ data, logoBase64 }: { data: any; logoBase64?: string }): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2; // 182mm
+
+  const company = data.companySettings || {
+    companyName: 'CAPSULE COMPANY',
+    tagline: 'YOUR SPACE MAKER',
+    address: 'N.17/3, 1st & 2nd Floor, SLV Complex, Hebbal Kempapura, Amanikere, Outer Ring Road, Bengaluru, Karnataka – 560024',
+    phone: '9187924723',
+    email: 'workscapsule@gmail.com',
+  };
+
+  // 1. TOP HEADER (MODERN EDITORIAL BRANDING)
+  const logoSize = 24;
+  const logoX = margin;
+  const logoY = margin;
+
+  if (logoBase64) {
+    try {
+      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoSize, logoSize);
+    } catch (e) {
+      console.warn('Logo base64 embed failed:', e);
+    }
+  } else if (typeof document !== 'undefined') {
+    try {
+      const img = document.querySelector('img[alt="Capsule Logo"]') as HTMLImageElement ||
+                  document.querySelector('img[alt="Capsule Company Logo"]') as HTMLImageElement;
+      if (img && img.complete && img.naturalWidth > 0) {
+        doc.addImage(img, 'PNG', logoX, logoY, logoSize, logoSize);
+      }
+    } catch (e) {
+      console.warn('Logo DOM embed failed:', e);
+    }
+  }
+
+  // Brand Name & Tagline under Logo on Left
+  const logoCenterX = logoX + logoSize / 2;
+  const brandNameY = logoY + logoSize + 3;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(26, 24, 23);
+  doc.text((company.companyName || 'CAPSULE COMPANY').toUpperCase(), logoCenterX, brandNameY, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6);
+  doc.setTextColor(200, 138, 110); // Brand copper
+  doc.text((company.tagline || 'YOUR SPACE MAKER').toUpperCase(), logoCenterX, brandNameY + 2.8, { align: 'center', charSpace: 0.5 });
+
+  // Document Title & Company Address on Right
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(22, 20, 19);
+  doc.text('PAYMENT RECEIPT VOUCHER', pageWidth - margin, margin + 6, { align: 'right', charSpace: 0.8 });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(28, 25, 23);
+  doc.text((company.companyName || 'CAPSULE COMPANY').toUpperCase(), pageWidth - margin, margin + 11.5, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(85, 80, 75);
+  const addressLines = doc.splitTextToSize(
+    company.address || 'N.17/3, 1st & 2nd Floor, SLV Complex, Hebbal Kempapura, Amanikere, Outer Ring Road, Bengaluru, Karnataka – 560024',
+    95
+  );
+  let addrY = margin + 15.5;
+  for (let i = 0; i < addressLines.length; i++) {
+    doc.text(addressLines[i], pageWidth - margin, addrY, { align: 'right' });
+    addrY += 2.9;
+  }
+
+  const contactY = addrY + 0.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(70, 65, 60);
+  doc.text(
+    `Contact: ${company.phone || '9187924723'}  |  Email: ${company.email || 'workscapsule@gmail.com'}`,
+    pageWidth - margin,
+    contactY,
+    { align: 'right' }
+  );
+
+  // Thin Separator Line
+  const headerBottomY = Math.max(contactY + 3.5, brandNameY + 5.5);
+  doc.setDrawColor(226, 221, 213);
+  doc.setLineWidth(0.35);
+  doc.line(margin, headerBottomY, pageWidth - margin, headerBottomY);
+
+  // 2. METADATA STRIP (4 Columns)
+  const metaY = headerBottomY + 2.5;
+  const metaHeight = 10;
+  doc.setFillColor(250, 247, 242); // Warm cream fill
+  doc.setDrawColor(226, 221, 213);
+  doc.roundedRect(margin, metaY, contentWidth, metaHeight, 1.5, 1.5, 'FD');
+
+  const colW = contentWidth / 4;
+  // Col 1: Receipt Number (highlighted)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.8);
+  doc.setTextColor(120, 113, 108);
+  doc.text('RECEIPT NUMBER', margin + 3, metaY + 3.8);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(169, 104, 76); // Copper highlight
+  doc.text(data.receiptNumber || 'CAP-REC-0001', margin + 3, metaY + 8);
+
+  // Col 2: Receipt Date
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.8);
+  doc.setTextColor(120, 113, 108);
+  doc.text('RECEIPT DATE', margin + colW + 3, metaY + 3.8);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(28, 25, 23);
+  doc.text(formatDateDDMMYYYY(data.receiptDate || data.createdAt), margin + colW + 3, metaY + 8);
+
+  // Col 3: Quotation Number
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.8);
+  doc.setTextColor(120, 113, 108);
+  doc.text('RELATED QUOTATION', margin + colW * 2 + 3, metaY + 3.8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(28, 25, 23);
+  doc.text(data.quotationNumber || data.quotation?.quotationNumber || 'N/A', margin + colW * 2 + 3, metaY + 8);
+
+  // Col 4: Invoice Number
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.8);
+  doc.setTextColor(120, 113, 108);
+  doc.text('INVOICE NUMBER', margin + colW * 3 + 3, metaY + 3.8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(28, 25, 23);
+  doc.text(data.invoiceNumber || data.invoice?.invoiceNumber || 'N/A', margin + colW * 3 + 3, metaY + 8);
+
+  // 3. TWO-COLUMN BOX: CUSTOMER DETAILS & PROJECT LOCATION
+  const custBoxY = metaY + metaHeight + 3;
+  const custBoxHeight = 25;
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(226, 221, 213);
+  doc.roundedRect(margin, custBoxY, contentWidth, custBoxHeight, 1.5, 1.5, 'FD');
+
+  // Vertical divider between customer and project
+  const halfCol = contentWidth / 2;
+  doc.setDrawColor(235, 231, 225);
+  doc.line(margin + halfCol, custBoxY + 2.5, margin + halfCol, custBoxY + custBoxHeight - 2.5);
+
+  // Left Column: Customer Details
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(120, 113, 108);
+  doc.text('CUSTOMER DETAILS', margin + 4, custBoxY + 4.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(20, 18, 17);
+  doc.text(data.customerName || data.customer?.name || 'Valued Client', margin + 4, custBoxY + 9.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(75, 70, 65);
+  doc.text(`Contact: ${data.customerPhone || data.customer?.phone || '-'}`, margin + 4, custBoxY + 14);
+
+  const rawAddress = data.customerAddress || data.customer?.address || 'Bengaluru, Karnataka';
+  const custAddrLines = doc.splitTextToSize(rawAddress, halfCol - 8);
+  let addrLineY = custBoxY + 18;
+  for (let i = 0; i < Math.min(custAddrLines.length, 2); i++) {
+    doc.text(custAddrLines[i], margin + 4, addrLineY);
+    addrLineY += 3;
+  }
+
+  // Right Column: Project & Site Location
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(120, 113, 108);
+  doc.text('PROJECT & SITE LOCATION', margin + halfCol + 4, custBoxY + 4.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(20, 18, 17);
+  doc.text(data.projectName || data.project?.name || 'Interior Work', margin + halfCol + 4, custBoxY + 9.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(75, 70, 65);
+  doc.text(`Site Location: ${data.projectLocation || data.project?.location || 'Bengaluru'}`, margin + halfCol + 4, custBoxY + 14);
+
+  if (data.paymentPurpose) {
+    doc.text(`Payment Purpose: ${data.paymentPurpose}`, margin + halfCol + 4, custBoxY + 18);
+  }
+
+  // 4. PAYMENT DETAILS HIGHLIGHT CARD
+  const payCardY = custBoxY + custBoxHeight + 3;
+  const payCardHeight = 22;
+  doc.setFillColor(250, 247, 242); // Warm subtle cream
+  doc.setDrawColor(218, 209, 198);
+  doc.roundedRect(margin, payCardY, contentWidth, payCardHeight, 2, 2, 'FD');
+
+  // Left Section of Payment Card: Amount Received (Big & Highlighted)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(120, 113, 108);
+  doc.text('AMOUNT RECEIVED', margin + 4, payCardY + 5.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(169, 104, 76); // Brand copper-gold
+  const formattedAmt = formatCurrency(data.amountReceived ?? data.currentPaymentReceived ?? 0);
+  doc.text(formattedAmt, margin + 4, payCardY + 14);
+
+  // Vertical separator in payment card
+  const paySplitX = margin + 68;
+  doc.setDrawColor(226, 221, 213);
+  doc.line(paySplitX, payCardY + 2.5, paySplitX, payCardY + payCardHeight - 2.5);
+
+  // Right Section: Payment Date, Mode, Transaction ID
+  const rightPayX = paySplitX + 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(115, 108, 102);
+  doc.text('Payment Date:', rightPayX, payCardY + 5.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(25, 23, 22);
+  doc.text(formatDateDDMMYYYY(data.paymentDate || data.createdAt), rightPayX + 22, payCardY + 5.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(115, 108, 102);
+  doc.text('Payment Mode:', rightPayX, payCardY + 10.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(25, 23, 22);
+  doc.text(data.paymentMode || 'Bank Transfer', rightPayX + 22, payCardY + 10.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(115, 108, 102);
+  doc.text('Transaction / Ref ID:', rightPayX, payCardY + 15.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(25, 23, 22);
+  doc.text(data.transactionId || 'N/A', rightPayX + 29, payCardY + 15.5);
+
+  // 5. AMOUNT IN WORDS BOX
+  const wordsY = payCardY + payCardHeight + 2.5;
+  const wordsHeight = 11;
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(226, 221, 213);
+  doc.roundedRect(margin, wordsY, contentWidth, wordsHeight, 1.5, 1.5, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6);
+  doc.setTextColor(120, 113, 108);
+  doc.text('AMOUNT IN WORDS:', margin + 3.5, wordsY + 3.8);
+
+  doc.setFont('times', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(40, 36, 34);
+  const wordsText = data.amountInWords || numberToWordsINR(data.amountReceived ?? data.currentPaymentReceived ?? 0);
+  const wordsLines = doc.splitTextToSize(wordsText, contentWidth - 7);
+  doc.text(wordsLines[0] || '', margin + 3.5, wordsY + 8);
+
+  // 6. PAYMENT SUMMARY TABLE
+  const summaryTableY = wordsY + wordsHeight + 2.5;
+
+  const totalProject = Number(data.totalProjectAmount || 0);
+  const prevPaid = Number(data.previousPaymentsReceived || 0);
+  const currPaid = Number(data.currentPaymentReceived ?? data.amountReceived ?? 0);
+  const totalPaid = Number((prevPaid + currPaid).toFixed(2));
+  const remaining = Number((totalProject - totalPaid).toFixed(2));
+
+  const tableBody = [
+    ['Total Project Amount', formatCurrency(totalProject)],
+    ['Previous Payments Received', formatCurrency(prevPaid)],
+    ['Current Payment Received', formatCurrency(currPaid)],
+    ['Total Payments Received', formatCurrency(totalPaid)],
+    ['Remaining Balance', formatCurrency(remaining)],
+  ];
+
+  autoTable(doc, {
+    startY: summaryTableY,
+    margin: { left: margin, right: margin },
+    tableWidth: contentWidth,
+    head: [['FINANCIAL SUMMARY COMPONENT', 'AMOUNT (INR)']],
+    body: tableBody,
+    theme: 'plain',
+    headStyles: {
+      fillColor: [26, 24, 23],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 6.8,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+      halign: 'left',
+    },
+    columnStyles: {
+      0: { cellWidth: 120, halign: 'left' },
+      1: { cellWidth: 62, halign: 'right', fontStyle: 'bold' },
+    },
+    bodyStyles: {
+      fontSize: 7.2,
+      textColor: [35, 32, 30],
+      cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+    },
+    didParseCell: (dataCell: any) => {
+      if (dataCell.section === 'head' && dataCell.column.index === 1) {
+        if (dataCell.cell && dataCell.cell.styles) dataCell.cell.styles.halign = 'right';
+      }
+      if (dataCell.section === 'body') {
+        const rowIdx = dataCell.row.index;
+        // Total payments received bold
+        if (rowIdx === 3 && dataCell.cell && dataCell.cell.styles) {
+          dataCell.cell.styles.fontStyle = 'bold';
+          dataCell.cell.styles.fillColor = [250, 247, 242];
+        }
+        // Remaining Balance highlighted
+        if (rowIdx === 4 && dataCell.cell && dataCell.cell.styles) {
+          dataCell.cell.styles.fontStyle = 'bold';
+          dataCell.cell.styles.fillColor = [253, 246, 240];
+          dataCell.cell.styles.textColor = [169, 104, 76]; // Copper highlight
+        }
+      }
+    },
+  });
+
+  const lastTableY = (doc as any).lastAutoTable?.finalY || (summaryTableY + 36);
+
+  // 7. RECEIPT CONFIRMATION STATEMENT (Requirement 6)
+  const confY = lastTableY + 2.5;
+  const confHeight = 14;
+  doc.setFillColor(250, 247, 242);
+  doc.setDrawColor(218, 209, 198);
+  doc.roundedRect(margin, confY, contentWidth, confHeight, 1.5, 1.5, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.8);
+  doc.setTextColor(169, 104, 76);
+  doc.text('OFFICIAL RECEIPT CONFIRMATION', margin + 3.5, confY + 3.8);
+
+  const custName = data.customerName || data.customer?.name || 'Customer';
+  const projName = data.projectName || data.project?.name || 'Project';
+  const payMode = data.paymentMode || 'Bank Transfer';
+  const payDateStr = formatDateDDMMYYYY(data.paymentDate || data.receiptDate || data.createdAt);
+
+  const confirmationStatement = `We acknowledge receipt of ${formattedAmt} (${wordsText}) from ${custName} towards ${projName} via ${payMode} on ${payDateStr}.`;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(45, 40, 36);
+  const confLines = doc.splitTextToSize(confirmationStatement, contentWidth - 7);
+  let confLineY = confY + 7.5;
+  for (let i = 0; i < Math.min(confLines.length, 2); i++) {
+    doc.text(confLines[i], margin + 3.5, confLineY);
+    confLineY += 3.2;
+  }
+
+  // 8. REMARKS / DESCRIPTION (if present)
+  let remarksEnd = confY + confHeight;
+  if (data.remarks && data.remarks.trim()) {
+    const remY = remarksEnd + 1.8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.8);
+    doc.setTextColor(120, 113, 108);
+    doc.text('REMARKS / DESCRIPTION:', margin, remY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(60, 55, 50);
+    const remLines = doc.splitTextToSize(data.remarks.trim(), contentWidth);
+    doc.text(remLines[0] || '', margin, remY + 3.2);
+    remarksEnd = remY + 4;
+  }
+
+  // 9. SIGNATURE SECTION (Requirement 7 - 4 Designated Spaces)
+  const sigY = Math.max(remarksEnd + 4, 236);
+  const sigColW = contentWidth / 4; // ~45.5mm each
+
+  const voucherSignatory = (company.authorizedSignatory && !company.authorizedSignatory.toLowerCase().includes('authorized signatory'))
+    ? company.authorizedSignatory
+    : 'Kishmat Sah Thakuri';
+
+  const sigLabels = [
+    { title: 'Received By', sub: data.receivedBy || 'CAPSULE COMPANY' },
+    { title: 'Customer Signature', sub: '(Authorized Customer)' },
+    { title: voucherSignatory, sub: 'For CAPSULE COMPANY' },
+    { title: 'Company Stamp', sub: '(Official Seal)' },
+  ];
+
+  sigLabels.forEach((item, idx) => {
+    const sx = margin + idx * sigColW;
+    const lineStartX = sx + 2;
+    const lineEndX = sx + sigColW - 2;
+    const lineY = sigY + 12;
+
+    // Signature space line
+    doc.setDrawColor(180, 175, 168);
+    doc.setLineWidth(0.3);
+    doc.line(lineStartX, lineY, lineEndX, lineY);
+
+    // Title label
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(30, 27, 25);
+    doc.text(item.title, (lineStartX + lineEndX) / 2, lineY + 3.5, { align: 'center' });
+
+    // Sub label
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(120, 113, 108);
+    doc.text(item.sub, (lineStartX + lineEndX) / 2, lineY + 6.5, { align: 'center' });
+  });
+
+  // 10. FOOTER (Requirement 8)
+  const footerY = 268;
+  doc.setDrawColor(226, 221, 213);
+  doc.setLineWidth(0.35);
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(26, 24, 23);
+  doc.text('Thank you for choosing Capsule Company!', pageWidth / 2, footerY + 4, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(200, 138, 110); // Brand copper
+  doc.text('YOUR SPACE MAKER', pageWidth / 2, footerY + 7.5, { align: 'center', charSpace: 0.8 });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.2);
+  doc.setTextColor(115, 108, 102);
+  doc.text(
+    `Contact: ${company.phone || '9187924723'}  |  Email: ${company.email || 'workscapsule@gmail.com'}`,
+    pageWidth / 2,
+    footerY + 11,
+    { align: 'center' }
+  );
+
+  // Guarantee single page output: if extra page was somehow generated, remove it
+  const pageCount = (doc as any).getNumberOfPages ? (doc as any).getNumberOfPages() : 1;
+  if (pageCount > 1) {
+    for (let p = pageCount; p > 1; p--) {
+      doc.deletePage(p);
+    }
+  }
+
+  return doc;
+}
+
+/**
+ * Download Receipt PDF in Browser
+ */
+export async function generateAndDownloadReceiptPDF({ data }: { data: any }): Promise<void> {
+  let logoBase64: string | undefined;
+
+  if (typeof document !== 'undefined') {
+    try {
+      const img = document.querySelector('img[alt="Capsule Logo"]') as HTMLImageElement ||
+                  document.querySelector('img[alt="Capsule Company Logo"]') as HTMLImageElement;
+      if (img && img.src) {
+        const b64 = await getBase64ImageFromUrl(img.src);
+        if (b64) logoBase64 = b64;
+      } else {
+        const b64 = await getBase64ImageFromUrl('/capsule-logo.png');
+        if (b64) logoBase64 = b64;
+      }
+    } catch (e) {
+      console.warn('Could not load logo for client PDF:', e);
+    }
+  }
+
+  const doc = buildReceiptPDFDoc({ data, logoBase64 });
+  const filename = `${data.receiptNumber || 'PAYMENT-RECEIPT'}.pdf`;
+
+  if (typeof window !== 'undefined') {
+    const blob = doc.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    link.style.display = 'none';
+    link.style.position = 'fixed';
+    link.style.left = '-9999px';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(blobUrl);
+    }, 4000);
+  } else {
+    doc.save(filename);
+  }
+}
+

@@ -35,10 +35,11 @@ model Customer {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  projects    Project[]
-  quotations  Quotation[]
-  invoices    Invoice[]
-  payments    Payment[]
+  projects        Project[]
+  quotations      Quotation[]
+  invoices        Invoice[]
+  payments        Payment[]
+  paymentReceipts PaymentReceipt[]
 }
 
 model Project {
@@ -59,6 +60,7 @@ model Project {
   quotations             Quotation[]
   invoices               Invoice[]
   payments               Payment[]
+  paymentReceipts        PaymentReceipt[]
 }
 
 model Category {
@@ -109,6 +111,7 @@ model Quotation {
 
   items              QuotationItem[]
   additionalCharges  AdditionalCharge[]
+  paymentReceipts    PaymentReceipt[]
 }
 
 model QuotationItem {
@@ -168,6 +171,7 @@ model Invoice {
   items              InvoiceItem[]
   additionalCharges  AdditionalCharge[]
   payments           Payment[]
+  paymentReceipts    PaymentReceipt[]
 }
 
 model InvoiceItem {
@@ -214,25 +218,80 @@ model AdditionalCharge {
   amount      Float
 }
 
+model PaymentReceipt {
+  id                       String     @id @default(cuid())
+  receiptNumber            String     @unique
+  receiptDate              DateTime   @default(now())
+
+  // Relations / References
+  customerId               String?
+  customer                 Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  projectId                String?
+  project                  Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  quotationId              String?
+  quotation                Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  invoiceId                String?
+  invoice                  Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  // Document numbers as displayed / entered
+  quotationNumber          String?
+  invoiceNumber            String?
+
+  // Customer details (immutable on receipt snapshot)
+  customerName             String
+  customerPhone            String
+  customerAddress          String?
+
+  // Project details
+  projectName              String
+  projectLocation          String?
+
+  // Payment details
+  amountReceived           Float
+  amountInWords            String
+  paymentDate              DateTime   @default(now())
+  paymentMode              String     // Cash, UPI, Bank Transfer, Cheque, Other
+  transactionId            String?    // Transaction ID / Reference Number
+  paymentPurpose           String     // Advance Payment, Part Payment, Final Payment, Other
+  remarks                  String?    // Description / Remarks
+
+  // Payment Summary
+  totalProjectAmount       Float
+  previousPaymentsReceived Float      @default(0)
+  currentPaymentReceived   Float
+  totalPaymentsReceived    Float
+  remainingBalance         Float
+
+  // Signatures
+  receivedBy               String?    @default("CAPSULE COMPANY")
+  authorizedSignatory      String?    @default("For CAPSULE COMPANY")
+
+  status                   String     @default("ISSUED") // ISSUED, CANCELLED
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+}
+
 model CompanySettings {
   id                  String   @id @default("default")
-  companyName         String   @default("Capsule Company")
+  companyName         String   @default("CAPSULE COMPANY")
   tagline             String   @default("YOUR SPACE MAKER")
   logoUrl             String   @default("/capsule-logo.png")
-  address             String   @default("N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024")
+  address             String   @default("N.17/3, 1st & 2nd Floor, SLV Complex, Hebbal Kempapura, Amanikere, Outer Ring Road, Bengaluru, Karnataka – 560024")
   phone               String   @default("9187924723")
-  email               String   @default("Workscapsule@gmail.com")
+  email               String   @default("workscapsule@gmail.com")
   website             String   @default("")
   gstin               String   @default("29ABCDE1234F1Z5")
-  bankName            String   @default("HDFC Bank")
-  accountName         String   @default("CAPSULE COMPANY")
-  accountNumber       String   @default("50200034981276")
-  ifscCode            String   @default("HDFC0001245")
-  branch              String   @default("Indiranagar Branch, Bengaluru")
-  upiId               String   @default("capsulecompany@hdfcbank")
+  bankName            String   @default("IDFC FIRST")
+  accountName         String   @default("Mr. Poornesh Bakila Babu")
+  accountNumber       String   @default("10177698837")
+  ifscCode            String   @default("IDFB0081101")
+  swiftCode           String?  @default("IDFBINBBMUM")
+  branch              String   @default("BANGALORE-BASAVESHWARA NAGAR BRANCH")
+  upiId               String   @default("poornesh43-3@oksbi")
   quotationPrefix     String   @default("CAP-QTN-")
   invoicePrefix       String   @default("CAP-INV-")
+  receiptPrefix       String   @default("CAP-REC-")
   defaultTerms        String   @default("1. 50% Advance on quotation approval to commence procurement.\n2. 40% on material delivery and inspection at site.\n3. 10% on completion and final handover.\n4. Any additional work beyond this quotation will be charged extra as agreed.\n5. Quotation valid for 30 days from the date of issue.")
-  authorizedSignatory String   @default("For CAPSULE COMPANY (Authorized Signatory)")
+  authorizedSignatory String   @default("Kishmat Sah Thakuri")
   updatedAt           DateTime @updatedAt
 }

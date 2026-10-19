@@ -71,8 +71,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const companySettings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
 
     const upiQrBase64 = await generateUpiQrDataUrl({
-      upiId: companySettings?.upiId || 'capsulecompany@hdfcbank',
-      name: companySettings?.accountName || companySettings?.companyName || 'CAPSULE COMPANY',
+      upiId: companySettings?.upiId || 'poornesh43-3@oksbi',
+      name: companySettings?.accountName || 'Mr. Poornesh Bakila Babu',
       amount: invoice.balanceDue ?? invoice.roundedGrandTotal,
       note: `${invoice.invoiceNumber}`
     });

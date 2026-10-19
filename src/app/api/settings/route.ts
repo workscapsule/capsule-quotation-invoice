@@ -41,6 +41,7 @@ export async function PUT(req: Request) {
         accountName: data.accountName,
         accountNumber: data.accountNumber,
         ifscCode: data.ifscCode,
+        swiftCode: data.swiftCode,
         branch: data.branch,
         upiId: data.upiId,
         quotationPrefix: data.quotationPrefix,
@@ -58,16 +59,17 @@ export async function PUT(req: Request) {
         email: data.email,
         website: data.website,
         gstin: data.gstin,
-        bankName: data.bankName,
-        accountName: data.accountName,
-        accountNumber: data.accountNumber,
-        ifscCode: data.ifscCode,
-        branch: data.branch,
-        upiId: data.upiId,
+        bankName: data.bankName || 'IDFC FIRST',
+        accountName: data.accountName || 'Mr. Poornesh Bakila Babu',
+        accountNumber: data.accountNumber || '10177698837',
+        ifscCode: data.ifscCode || 'IDFB0081101',
+        swiftCode: data.swiftCode || 'IDFBINBBMUM',
+        branch: data.branch || 'BANGALORE-BASAVESHWARA NAGAR BRANCH',
+        upiId: data.upiId || 'poornesh43-3@oksbi',
         quotationPrefix: data.quotationPrefix || 'CAP-QTN-',
         invoicePrefix: data.invoicePrefix || 'CAP-INV-',
         defaultTerms: data.defaultTerms,
-        authorizedSignatory: data.authorizedSignatory || 'For CAPSULE COMPANY'
+        authorizedSignatory: data.authorizedSignatory || 'Kishmat Sah Thakuri'
       }
     });
 
