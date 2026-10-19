@@ -20,6 +20,7 @@ import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, Dis
 import { formatCurrency } from '@/lib/formatters';
 import { resolveProductImage } from '@/lib/productImages';
 import ProductImageModal from '@/components/ProductImageModal';
+import { DEFAULT_QUOTATION_TERMS } from '@/lib/terms';
 
 interface CustomerOption {
   id: string;
@@ -125,7 +126,16 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
   );
 
   const [notes, setNotes] = useState(initialData?.notes || '');
-  const [termsAndConditions, setTermsAndConditions] = useState(initialData?.termsAndConditions || '');
+  const [termsAndConditions, setTermsAndConditions] = useState(() => {
+    if (initialData?.termsAndConditions) {
+      const t = initialData.termsAndConditions;
+      if (t.includes('commence design and procurement') || t.includes('commence procurement') || t.includes('advance on approval, 40% on material delivery')) {
+        return DEFAULT_QUOTATION_TERMS;
+      }
+      return t;
+    }
+    return DEFAULT_QUOTATION_TERMS;
+  });
 
   // Fetch Customers & Categories
   useEffect(() => {
@@ -137,8 +147,12 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
       .then(([custData, catData, settingsData]) => {
         setCustomers(Array.isArray(custData) ? custData : []);
         setCategories(Array.isArray(catData) ? catData : []);
-        if (!initialData?.termsAndConditions && settingsData?.defaultTerms) {
-          setTermsAndConditions(settingsData.defaultTerms);
+        if (!initialData?.termsAndConditions) {
+          if (settingsData?.defaultQuotationTerms) {
+            setTermsAndConditions(settingsData.defaultQuotationTerms);
+          } else if (!termsAndConditions) {
+            setTermsAndConditions(DEFAULT_QUOTATION_TERMS);
+          }
         }
       })
       .catch(console.error)

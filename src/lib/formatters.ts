@@ -12,6 +12,17 @@ export function formatCurrency(amount: number | string | null | undefined): stri
 }
 
 /**
+ * Format numbers with Indian comma separators and two decimals for PDF rendering without broken currency symbols: 1,23,456.00
+ */
+export function formatPdfCurrency(amount: number | string | null | undefined): string {
+  const num = Number(amount) || 0;
+  return new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+}
+
+/**
  * Format numbers with Indian comma separators without symbol
  */
 export function formatIndianNumber(val: number | string | null | undefined): string {

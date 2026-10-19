@@ -25,6 +25,7 @@ import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, Dis
 import { formatCurrency } from '@/lib/formatters';
 import { resolveProductImage } from '@/lib/productImages';
 import ProductImageModal from '@/components/ProductImageModal';
+import { DEFAULT_QUOTATION_TERMS } from '@/lib/terms';
 
 interface CustomerOption {
   id: string;
@@ -83,7 +84,7 @@ export default function CategoryProjectItemEntryPage() {
   const [gstRate, setGstRate] = useState<number>(18);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalChargeInput[]>([]);
   const [notes, setNotes] = useState('');
-  const [termsAndConditions, setTermsAndConditions] = useState('');
+  const [termsAndConditions, setTermsAndConditions] = useState(DEFAULT_QUOTATION_TERMS);
 
   useEffect(() => {
     Promise.all([
@@ -112,8 +113,12 @@ export default function CategoryProjectItemEntryPage() {
           }
         ]);
 
-        if (settingsData?.defaultTerms) {
+        if (settingsData?.defaultQuotationTerms) {
+          setTermsAndConditions(settingsData.defaultQuotationTerms);
+        } else if (settingsData?.defaultTerms && !settingsData.defaultTerms.includes('commence design and procurement')) {
           setTermsAndConditions(settingsData.defaultTerms);
+        } else {
+          setTermsAndConditions(DEFAULT_QUOTATION_TERMS);
         }
       })
       .catch(console.error)

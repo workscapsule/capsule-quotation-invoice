@@ -47,6 +47,8 @@ export async function PUT(req: Request) {
         quotationPrefix: data.quotationPrefix,
         invoicePrefix: data.invoicePrefix,
         defaultTerms: data.defaultTerms,
+        defaultQuotationTerms: data.defaultQuotationTerms,
+        defaultInvoiceTerms: data.defaultInvoiceTerms,
         authorizedSignatory: data.authorizedSignatory
       },
       create: {
@@ -69,6 +71,8 @@ export async function PUT(req: Request) {
         quotationPrefix: data.quotationPrefix || 'CAP-QTN-',
         invoicePrefix: data.invoicePrefix || 'CAP-INV-',
         defaultTerms: data.defaultTerms,
+        defaultQuotationTerms: data.defaultQuotationTerms,
+        defaultInvoiceTerms: data.defaultInvoiceTerms,
         authorizedSignatory: data.authorizedSignatory || 'Kishmat Sah Thakuri'
       }
     });

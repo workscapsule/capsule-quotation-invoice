@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { calculateFinancials } from '@/lib/calculations';
+import { DEFAULT_INVOICE_TERMS } from '@/lib/terms';
 
 export async function GET(req: Request) {
   try {
@@ -280,7 +281,7 @@ export async function POST(req: Request) {
         balanceDue: calculated.roundedGrandTotal,
         paymentStatus: calculated.paymentStatus,
         notes: notes || null,
-        termsAndConditions: termsAndConditions || companySettings?.defaultTerms,
+        termsAndConditions: termsAndConditions || (companySettings as any)?.defaultInvoiceTerms || DEFAULT_INVOICE_TERMS,
         createdBy: sessionUser,
         updatedBy: sessionUser,
         items: {

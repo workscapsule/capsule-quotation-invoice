@@ -1,0 +1,29 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # Runs every 2 days at 00:00 UTC (well within the 7-day inactivity pause window)
+    - cron: '0 0 */2 * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          echo "Pinging Supabase at https://zksmzotvrdqphrtperbk.supabase.co..."
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprc216b3R2cmRxcGhydHBlcmJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTM4MTUsImV4cCI6MjEwNTk4OTgxNX0.vDmppKXlDBGJyyez-MHfxIhCWvt_dipq9D2a5ydwyd0' }}" \
+            -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprc216b3R2cmRxcGhydHBlcmJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTM4MTUsImV4cCI6MjEwNTk4OTgxNX0.vDmppKXlDBGJyyez-MHfxIhCWvt_dipq9D2a5ydwyd0' }}" \
+            "https://zksmzotvrdqphrtperbk.supabase.co/rest/v1/Category?select=id&limit=1")
+          
+          echo "Response HTTP Status: $HTTP_STATUS"
+          cat response.json
+          
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Supabase project is active and healthy!"
+          else
+            echo "⚠️ Unexpected status code: $HTTP_STATUS"
+            exit 1
+          fi

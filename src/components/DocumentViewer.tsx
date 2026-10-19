@@ -24,6 +24,7 @@ import { numberToWordsINR } from '@/lib/numberToWords';
 import { generateAndDownloadPDF } from '@/lib/pdfGenerator';
 import { resolveProductImage } from '@/lib/productImages';
 import { generateUpiQrDataUrl } from '@/lib/upiQr';
+import { DEFAULT_QUOTATION_TERMS, DEFAULT_INVOICE_TERMS } from '@/lib/terms';
 
 interface DocumentViewerProps {
   type: 'QUOTATION' | 'INVOICE';
@@ -51,7 +52,7 @@ export default function DocumentViewer({
     companyName: 'Capsule Company',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024',
-    phone: '9187924723',
+    phone: '9187924723, 9187924523, 9187924623',
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '29ABCDE1234F1Z5',
@@ -338,7 +339,7 @@ export default function DocumentViewer({
               </span>
               {isQuotation ? (
                 <span className="font-medium text-stone-800 text-xs">
-                  {data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)'}
+                  {data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST & SGST (18%)'}
                 </span>
               ) : (
                 <div className="flex items-center gap-2">
@@ -617,9 +618,20 @@ export default function DocumentViewer({
                 TERMS & CONDITIONS:
               </span>
               <p className="whitespace-pre-line">
-                {data.termsAndConditions || (isQuotation
-                  ? '1. 50% advance on approval, 40% on material delivery at site, 10% on handover.\n2. Quotation valid for 30 days from date of issue.'
-                  : '1. Payment due as per agreed schedule. Late payments may attract interest.\n2. Goods remain property of Capsule Company until fully settled.')}
+                {(() => {
+                  const rawTerms = data.termsAndConditions;
+                  if (isQuotation) {
+                    if (!rawTerms || rawTerms.includes('commence design and procurement') || rawTerms.includes('commence procurement') || rawTerms.includes('advance on approval, 40% on material delivery')) {
+                      return DEFAULT_QUOTATION_TERMS;
+                    }
+                    return rawTerms;
+                  } else {
+                    if (!rawTerms || rawTerms.includes('Quotation valid for') || rawTerms.includes('pipe installation') || rawTerms.includes('plumbing fittings') || rawTerms.includes('commence design and procurement')) {
+                      return DEFAULT_INVOICE_TERMS;
+                    }
+                    return rawTerms;
+                  }
+                })()}
               </p>
             </div>
 

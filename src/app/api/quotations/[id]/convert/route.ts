@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { DEFAULT_INVOICE_TERMS } from '@/lib/terms';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -76,7 +77,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           balanceDue: quotation.roundedGrandTotal,
           paymentStatus: 'UNPAID',
           notes: quotation.notes,
-          termsAndConditions: quotation.termsAndConditions,
+          termsAndConditions: (quotation.termsAndConditions && !quotation.termsAndConditions.includes('pipe installation') && !quotation.termsAndConditions.includes('plumbing fittings') && !quotation.termsAndConditions.includes('Quotation valid for') && !quotation.termsAndConditions.includes('commence design and procurement'))
+            ? quotation.termsAndConditions
+            : DEFAULT_INVOICE_TERMS,
           createdBy: session.name,
           updatedBy: session.name,
           items: {

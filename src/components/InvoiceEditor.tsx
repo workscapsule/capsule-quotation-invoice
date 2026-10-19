@@ -16,6 +16,7 @@ import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, Dis
 import { formatCurrency } from '@/lib/formatters';
 import { resolveProductImage } from '@/lib/productImages';
 import ProductImageModal from '@/components/ProductImageModal';
+import { DEFAULT_INVOICE_TERMS } from '@/lib/terms';
 
 interface CustomerOption {
   id: string;
@@ -120,7 +121,16 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
   );
 
   const [notes, setNotes] = useState(initialData?.notes || '');
-  const [termsAndConditions, setTermsAndConditions] = useState(initialData?.termsAndConditions || '');
+  const [termsAndConditions, setTermsAndConditions] = useState(() => {
+    if (initialData?.termsAndConditions) {
+      const t = initialData.termsAndConditions;
+      if (t.includes('pipe installation') || t.includes('plumbing fittings') || t.includes('Quotation valid for') || t.includes('commence design and procurement')) {
+        return DEFAULT_INVOICE_TERMS;
+      }
+      return t;
+    }
+    return DEFAULT_INVOICE_TERMS;
+  });
 
   const totalPaidSoFar = Number(initialData?.totalPaid) || 0;
 
@@ -133,8 +143,14 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
       .then(([custData, catData, settingsData]) => {
         setCustomers(Array.isArray(custData) ? custData : []);
         setCategories(Array.isArray(catData) ? catData : []);
-        if (!initialData?.termsAndConditions && settingsData?.defaultTerms) {
-          setTermsAndConditions(settingsData.defaultTerms);
+        if (!initialData?.termsAndConditions) {
+          if (settingsData?.defaultInvoiceTerms) {
+            setTermsAndConditions(settingsData.defaultInvoiceTerms);
+          } else if (settingsData?.defaultTerms && !settingsData.defaultTerms.includes('commence design and procurement') && !settingsData.defaultTerms.includes('pipe installation')) {
+            setTermsAndConditions(settingsData.defaultTerms);
+          } else {
+            setTermsAndConditions(DEFAULT_INVOICE_TERMS);
+          }
         }
       })
       .catch(console.error)

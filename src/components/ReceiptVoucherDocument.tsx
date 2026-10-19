@@ -15,7 +15,7 @@ export default function ReceiptVoucherDocument({ data, companySettings }: Receip
     companyName: 'CAPSULE COMPANY',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.17/3, 1st & 2nd Floor, SLV Complex, Hebbal Kempapura, Amanikere, Outer Ring Road, Bengaluru, Karnataka – 560024',
-    phone: '9187924723',
+    phone: '9187924723, 9187924523, 9187924623',
     email: 'workscapsule@gmail.com',
   };
 

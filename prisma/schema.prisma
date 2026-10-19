@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -277,7 +278,7 @@ model CompanySettings {
   tagline             String   @default("YOUR SPACE MAKER")
   logoUrl             String   @default("/capsule-logo.png")
   address             String   @default("N.17/3, 1st & 2nd Floor, SLV Complex, Hebbal Kempapura, Amanikere, Outer Ring Road, Bengaluru, Karnataka – 560024")
-  phone               String   @default("9187924723")
+  phone               String   @default("9187924723, 9187924523, 9187924623")
   email               String   @default("workscapsule@gmail.com")
   website             String   @default("")
   gstin               String   @default("29ABCDE1234F1Z5")
@@ -291,7 +292,9 @@ model CompanySettings {
   quotationPrefix     String   @default("CAP-QTN-")
   invoicePrefix       String   @default("CAP-INV-")
   receiptPrefix       String   @default("CAP-REC-")
-  defaultTerms        String   @default("1. 50% Advance on quotation approval to commence procurement.\n2. 40% on material delivery and inspection at site.\n3. 10% on completion and final handover.\n4. Any additional work beyond this quotation will be charged extra as agreed.\n5. Quotation valid for 30 days from the date of issue.")
+  defaultTerms          String   @default("1. Payment due as per agreed schedule. Late payments may attract interest.\n2. Goods remain property of Capsule Company until fully settled.")
+  defaultQuotationTerms String?  @default("1. 50% Advance payment at the time of confirmation.\n2. 20% After completion of all pipe installation.\n3. 20% After fixing all plumbing fittings.\n4. 10% Before final handover of the project.\n5. Payments shall be made according to the above-mentioned stages of work. The final 10% payment must be cleared before project handover.\n6. Quotation valid for 7 days from the date of issue.")
+  defaultInvoiceTerms   String?  @default("1. Payment due as per agreed schedule. Late payments may attract interest.\n2. Goods remain property of Capsule Company until fully settled.")
   authorizedSignatory String   @default("Kishmat Sah Thakuri")
   updatedAt           DateTime @updatedAt
 }

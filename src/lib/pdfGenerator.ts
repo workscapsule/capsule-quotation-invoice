@@ -1,9 +1,10 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency, formatDate, formatDateDDMMYYYY } from './formatters';
+import { formatCurrency, formatPdfCurrency, formatDate, formatDateDDMMYYYY } from './formatters';
 import { numberToWordsINR } from './numberToWords';
 import { resolveProductImage, getBase64ImageFromUrl } from './productImages';
 import { generateUpiQrDataUrl } from './upiQr';
+import { DEFAULT_QUOTATION_TERMS, DEFAULT_INVOICE_TERMS } from './terms';
 
 export interface PDFGeneratorOptions {
   data: any;
@@ -30,7 +31,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     companyName: 'Capsule Company',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024',
-    phone: '9187924723',
+    phone: '9187924723, 9187924523, 9187924623',
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '29ABCDE1234F1Z5',
@@ -151,7 +152,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     drawMetaCol(0, 'QUOTATION NO:', data.quotationNumber || 'CAP-QTN-0001', true);
     drawMetaCol(1, 'DATE:', formatDate(data.quotationDate));
     drawMetaCol(2, 'VALID UNTIL:', formatDate(data.validUntil));
-    drawMetaCol(3, 'TAX REGIME:', data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST + SGST (18%)');
+    drawMetaCol(3, 'TAX REGIME:', data.taxMode === 'IGST' ? 'Inter-state IGST' : 'CGST & SGST (18%)');
   } else {
     drawMetaCol(0, 'INVOICE NO:', data.invoiceNumber || 'CAP-INV-0001', true);
     drawMetaCol(1, 'INVOICE DATE:', formatDate(data.invoiceDate));
@@ -253,8 +254,8 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
       scopeHeader + desc,
       `${item.quantity ?? 1}`,
       item.unit || 'Nos',
-      formatCurrency(item.rate ?? 0),
-      formatCurrency(item.amount ?? 0)
+      formatPdfCurrency(item.rate ?? 0),
+      formatPdfCurrency(item.amount ?? 0)
     ];
   });
 
@@ -329,7 +330,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
 
   // Check if totals section will overflow the page
   const remainingSpace = pageHeight - currentY - margin;
-  if (remainingSpace < 55) {
+  if (remainingSpace < 65) {
     doc.addPage();
     currentY = margin + 5;
   }
@@ -337,18 +338,19 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   // --- 4. TOTALS SECTION (Right) & PAYMENT INFO (Left) ---
   const totalsWidth = 65;
   const totalsX = pageWidth - margin - totalsWidth;
+  const totalsRightX = pageWidth - margin - 1;
   let totalsY = currentY + 1;
 
   const drawTotalLine = (label: string, value: string, isBold = false, isLarge = false, isAccent = false) => {
     doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    doc.setFontSize(isLarge ? 9.5 : 7.2);
+    doc.setFontSize(isLarge ? 9.0 : 7.2);
     if (isAccent) doc.setTextColor(179, 115, 86);
     else if (isLarge) doc.setTextColor(15, 15, 15);
     else doc.setTextColor(70, 70, 70);
 
     doc.text(label, totalsX, totalsY);
-    doc.text(value, pageWidth - margin, totalsY, { align: 'right' });
-    totalsY += isLarge ? 5.2 : 3.8;
+    doc.text(value, totalsRightX, totalsY, { align: 'right' });
+    totalsY += isLarge ? 5.0 : 3.8;
   };
 
   const subtotal = data.subtotal ?? 0;
@@ -359,38 +361,38 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   const otherChargesAmount = data.otherChargesAmount ?? 0;
   const grandTotal = data.roundedGrandTotal ?? data.grandTotal ?? 0;
 
-  drawTotalLine('SUBTOTAL', formatCurrency(subtotal), true);
+  drawTotalLine('SUBTOTAL', formatPdfCurrency(subtotal), true);
 
   if (discountAmount > 0) {
-    drawTotalLine(`Discount (${data.discountValue ?? 0}%):`, `- ${formatCurrency(discountAmount)}`);
+    drawTotalLine(`Discount (${data.discountValue ?? 0}%):`, `- ${formatPdfCurrency(discountAmount)}`);
   }
 
   if (cgstAmount > 0 || sgstAmount > 0) {
     const half = (data.gstRate || 18) / 2;
-    drawTotalLine(`CGST (${half}%):`, formatCurrency(cgstAmount));
-    drawTotalLine(`SGST (${half}%):`, formatCurrency(sgstAmount));
+    drawTotalLine(`CGST (${half}%):`, formatPdfCurrency(cgstAmount));
+    drawTotalLine(`SGST (${half}%):`, formatPdfCurrency(sgstAmount));
   } else if (igstAmount > 0) {
-    drawTotalLine(`IGST (${data.gstRate || 18}%):`, formatCurrency(igstAmount));
+    drawTotalLine(`IGST (${data.gstRate || 18}%):`, formatPdfCurrency(igstAmount));
   }
 
   if (otherChargesAmount > 0) {
-    drawTotalLine('Other Charges:', formatCurrency(otherChargesAmount));
+    drawTotalLine('Other Charges:', formatPdfCurrency(otherChargesAmount));
   }
 
   // Thin line above total
   doc.setDrawColor(210, 210, 210);
   doc.setLineWidth(0.2);
-  doc.line(totalsX, totalsY - 0.8, pageWidth - margin, totalsY - 0.8);
+  doc.line(totalsX, totalsY - 0.8, totalsRightX, totalsY - 0.8);
   totalsY += 1.8;
 
-  drawTotalLine('TOTAL', formatCurrency(grandTotal), true, true);
+  drawTotalLine('TOTAL', formatPdfCurrency(grandTotal), true, true);
 
   // For Invoices: Paid & Balance Due
   if (!isQuotation) {
     const totalPaid = data.totalPaid ?? 0;
     const balanceDue = data.balanceDue ?? grandTotal - totalPaid;
-    drawTotalLine('Total Paid:', formatCurrency(totalPaid));
-    drawTotalLine('Balance Due:', formatCurrency(balanceDue), true, false, true);
+    drawTotalLine('Total Paid:', formatPdfCurrency(totalPaid));
+    drawTotalLine('Balance Due:', formatPdfCurrency(balanceDue), true, false, true);
   }
 
   // Left Column: PAYMENT INFO & AMOUNT IN WORDS
@@ -489,7 +491,11 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   paymentY += wordsBoxHeight + 2;
 
   // --- 5. TERMS & SIGNATURE SECTION ---
-  const sectionDividerY = Math.max(totalsY, paymentY) + 3;
+  let sectionDividerY = Math.max(totalsY, paymentY) + 3;
+  if (sectionDividerY + 28 > pageHeight - margin) {
+    doc.addPage();
+    sectionDividerY = margin + 5;
+  }
   doc.setDrawColor(225, 225, 225);
   doc.setLineWidth(0.3);
   doc.line(margin, sectionDividerY, pageWidth - margin, sectionDividerY);
@@ -503,13 +509,28 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   doc.text('TERMS & CONDITIONS:', margin, footerY);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.2);
-  doc.setTextColor(110, 110, 110);
-  const termsText = data.termsAndConditions || company.defaultTerms || (isQuotation
-    ? '1. 50% advance on approval, 40% on material delivery at site, 10% on handover.\n2. Quotation valid for 30 days from date of issue.'
-    : '1. Payment due as per agreed schedule. Late payments may attract interest.\n2. All goods delivered remain property until paid in full.');
-  const termsLines = doc.splitTextToSize(termsText, contentWidth - 55);
-  doc.text(termsLines.slice(0, 3), margin, footerY + 3.2);
+  doc.setFontSize(5.8);
+  doc.setTextColor(95, 95, 95);
+
+  let termsText = data.termsAndConditions;
+  if (isQuotation) {
+    if (!termsText || termsText.includes('commence design and procurement') || termsText.includes('commence procurement') || termsText.includes('advance on approval, 40% on material delivery')) {
+      termsText = company.defaultQuotationTerms || DEFAULT_QUOTATION_TERMS;
+    }
+  } else {
+    if (!termsText || termsText.includes('Quotation valid for') || termsText.includes('pipe installation') || termsText.includes('plumbing fittings') || termsText.includes('commence design and procurement')) {
+      termsText = company.defaultInvoiceTerms || company.defaultTerms || DEFAULT_INVOICE_TERMS;
+    }
+  }
+
+  const termsWidth = contentWidth - 52;
+  const termsLines = doc.splitTextToSize(termsText, termsWidth);
+  let termsCurrY = footerY + 3.2;
+  const lineSpacing = 2.65;
+  for (let i = 0; i < termsLines.length; i++) {
+    doc.text(termsLines[i], margin, termsCurrY);
+    termsCurrY += lineSpacing;
+  }
 
   // Signature on Bottom Right
   const sigX = pageWidth - margin - 45;
@@ -606,7 +627,7 @@ export function buildReceiptPDFDoc({ data, logoBase64 }: { data: any; logoBase64
     companyName: 'CAPSULE COMPANY',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.17/3, 1st & 2nd Floor, SLV Complex, Hebbal Kempapura, Amanikere, Outer Ring Road, Bengaluru, Karnataka – 560024',
-    phone: '9187924723',
+    phone: '9187924723, 9187924523, 9187924623',
     email: 'workscapsule@gmail.com',
   };
 
@@ -675,7 +696,7 @@ export function buildReceiptPDFDoc({ data, logoBase64 }: { data: any; logoBase64
   doc.setFontSize(6.8);
   doc.setTextColor(70, 65, 60);
   doc.text(
-    `Contact: ${company.phone || '9187924723'}  |  Email: ${company.email || 'workscapsule@gmail.com'}`,
+    `Contact: ${company.phone || '9187924723, 9187924523, 9187924623'}  |  Email: ${company.email || 'workscapsule@gmail.com'}`,
     pageWidth - margin,
     contactY,
     { align: 'right' }
@@ -807,7 +828,7 @@ export function buildReceiptPDFDoc({ data, logoBase64 }: { data: any; logoBase64
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(169, 104, 76); // Brand copper-gold
-  const formattedAmt = formatCurrency(data.amountReceived ?? data.currentPaymentReceived ?? 0);
+  const formattedAmt = formatPdfCurrency(data.amountReceived ?? data.currentPaymentReceived ?? 0);
   doc.text(formattedAmt, margin + 4, payCardY + 14);
 
   // Vertical separator in payment card
@@ -868,11 +889,11 @@ export function buildReceiptPDFDoc({ data, logoBase64 }: { data: any; logoBase64
   const remaining = Number((totalProject - totalPaid).toFixed(2));
 
   const tableBody = [
-    ['Total Project Amount', formatCurrency(totalProject)],
-    ['Previous Payments Received', formatCurrency(prevPaid)],
-    ['Current Payment Received', formatCurrency(currPaid)],
-    ['Total Payments Received', formatCurrency(totalPaid)],
-    ['Remaining Balance', formatCurrency(remaining)],
+    ['Total Project Amount', formatPdfCurrency(totalProject)],
+    ['Previous Payments Received', formatPdfCurrency(prevPaid)],
+    ['Current Payment Received', formatPdfCurrency(currPaid)],
+    ['Total Payments Received', formatPdfCurrency(totalPaid)],
+    ['Remaining Balance', formatPdfCurrency(remaining)],
   ];
 
   autoTable(doc, {
@@ -1026,7 +1047,7 @@ export function buildReceiptPDFDoc({ data, logoBase64 }: { data: any; logoBase64
   doc.setFontSize(6.2);
   doc.setTextColor(115, 108, 102);
   doc.text(
-    `Contact: ${company.phone || '9187924723'}  |  Email: ${company.email || 'workscapsule@gmail.com'}`,
+    `Contact: ${company.phone || '9187924723, 9187924523, 9187924623'}  |  Email: ${company.email || 'workscapsule@gmail.com'}`,
     pageWidth / 2,
     footerY + 11,
     { align: 'center' }

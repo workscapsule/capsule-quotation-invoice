@@ -10,7 +10,7 @@ export default function SettingsPage() {
     tagline: 'YOUR SPACE MAKER',
     logoUrl: '/capsule-logo.png',
     address: 'N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024',
-    phone: '9187924723',
+    phone: '9187924723, 9187924523, 9187924623',
     email: 'Workscapsule@gmail.com',
     website: '',
     gstin: '',
@@ -24,6 +24,8 @@ export default function SettingsPage() {
     quotationPrefix: 'CAP-QTN-',
     invoicePrefix: 'CAP-INV-',
     defaultTerms: '',
+    defaultQuotationTerms: '',
+    defaultInvoiceTerms: '',
     authorizedSignatory: 'Kishmat Sah Thakuri'
   });
 
@@ -310,12 +312,29 @@ export default function SettingsPage() {
 
             <div className="sm:col-span-2">
               <label className="block font-semibold text-stone-700 mb-1">
-                Default Terms and Conditions (Auto-fills into new quotes & invoices)
+                Default Quotation Terms & Conditions (Auto-fills into new quotations)
               </label>
               <textarea
-                rows={5}
-                value={form.defaultTerms || ''}
-                onChange={(e) => handleChange('defaultTerms', e.target.value)}
+                rows={6}
+                value={form.defaultQuotationTerms || ''}
+                onChange={(e) => handleChange('defaultQuotationTerms', e.target.value)}
+                placeholder="1. 50% Advance payment at the time of confirmation..."
+                className="w-full rounded-lg border border-stone-300 p-2.5 bg-white font-mono text-xs leading-relaxed"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block font-semibold text-stone-700 mb-1">
+                Default Invoice Terms & Conditions (Auto-fills into new invoices)
+              </label>
+              <textarea
+                rows={4}
+                value={form.defaultInvoiceTerms || form.defaultTerms || ''}
+                onChange={(e) => {
+                  handleChange('defaultInvoiceTerms', e.target.value);
+                  handleChange('defaultTerms', e.target.value);
+                }}
+                placeholder="1. Payment due as per agreed schedule..."
                 className="w-full rounded-lg border border-stone-300 p-2.5 bg-white font-mono text-xs leading-relaxed"
               />
             </div>
