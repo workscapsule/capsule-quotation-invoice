@@ -168,7 +168,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           grandTotal: calculated.grandTotal,
           roundedGrandTotal: calculated.roundedGrandTotal,
           status,
-          notes: notes !== undefined ? notes : existing.notes,
+          notes: notes !== undefined ? (notes || null) : existing.notes,
           termsAndConditions: termsAndConditions !== undefined ? termsAndConditions : existing.termsAndConditions,
           updatedBy: sessionUser,
           items: {

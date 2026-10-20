@@ -137,6 +137,12 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
     return DEFAULT_QUOTATION_TERMS;
   });
 
+  useEffect(() => {
+    if (initialData?.notes !== undefined && initialData?.notes !== null) {
+      setNotes(initialData.notes);
+    }
+  }, [initialData?.notes]);
+
   // Fetch Customers & Categories
   useEffect(() => {
     Promise.all([

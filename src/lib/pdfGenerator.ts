@@ -492,25 +492,10 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
 
   // --- 5. TERMS & SIGNATURE SECTION ---
   let sectionDividerY = Math.max(totalsY, paymentY) + 3;
-  if (sectionDividerY + 28 > pageHeight - margin) {
-    doc.addPage();
-    sectionDividerY = margin + 5;
-  }
-  doc.setDrawColor(225, 225, 225);
-  doc.setLineWidth(0.3);
-  doc.line(margin, sectionDividerY, pageWidth - margin, sectionDividerY);
 
-  const footerY = sectionDividerY + 3.5;
-
-  // Terms and conditions on Bottom Left
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.8);
-  doc.setTextColor(30, 30, 30);
-  doc.text('TERMS & CONDITIONS:', margin, footerY);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.8);
-  doc.setTextColor(95, 95, 95);
+  const hasNotes = isQuotation && Boolean(data.notes && String(data.notes).trim());
+  const termsWidth = contentWidth - 52;
+  const lineSpacing = 2.65;
 
   let termsText = data.termsAndConditions;
   if (isQuotation) {
@@ -523,13 +508,64 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     }
   }
 
-  const termsWidth = contentWidth - 52;
-  const termsLines = doc.splitTextToSize(termsText, termsWidth);
-  let termsCurrY = footerY + 3.2;
-  const lineSpacing = 2.65;
+  const termsLines: string[] = doc.splitTextToSize(termsText, termsWidth);
+  const notesLines: string[] = hasNotes ? doc.splitTextToSize(String(data.notes).trim(), termsWidth) : [];
+
+  const neededFooterHeight = (hasNotes ? (3.5 + notesLines.length * lineSpacing + 3) : 0) + 3.5 + (termsLines.length * lineSpacing) + 12;
+
+  if (sectionDividerY + neededFooterHeight > pageHeight - margin) {
+    doc.addPage();
+    sectionDividerY = margin + 5;
+  }
+
+  doc.setDrawColor(225, 225, 225);
+  doc.setLineWidth(0.3);
+  doc.line(margin, sectionDividerY, pageWidth - margin, sectionDividerY);
+
+  const footerY = sectionDividerY + 3.5;
+  let leftCurrY = footerY;
+
+  // Project Specific Notes (Quotation Only)
+  if (hasNotes) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(30, 30, 30);
+    doc.text('PROJECT SPECIFIC NOTES:', margin, leftCurrY);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.8);
+    doc.setTextColor(70, 70, 70);
+
+    leftCurrY += 3.2;
+    for (let i = 0; i < notesLines.length; i++) {
+      if (leftCurrY + lineSpacing > pageHeight - margin) {
+        doc.addPage();
+        leftCurrY = margin + 5;
+      }
+      doc.text(notesLines[i], margin, leftCurrY);
+      leftCurrY += lineSpacing;
+    }
+    leftCurrY += 2.8; // Spacing before terms
+  }
+
+  // Terms and conditions on Bottom Left
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  doc.setTextColor(30, 30, 30);
+  doc.text('TERMS & CONDITIONS:', margin, leftCurrY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.setTextColor(95, 95, 95);
+
+  leftCurrY += 3.2;
   for (let i = 0; i < termsLines.length; i++) {
-    doc.text(termsLines[i], margin, termsCurrY);
-    termsCurrY += lineSpacing;
+    if (leftCurrY + lineSpacing > pageHeight - margin) {
+      doc.addPage();
+      leftCurrY = margin + 5;
+    }
+    doc.text(termsLines[i], margin, leftCurrY);
+    leftCurrY += lineSpacing;
   }
 
   // Signature on Bottom Right

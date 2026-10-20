@@ -613,26 +613,38 @@ export default function DocumentViewer({
 
           {/* Footer: Terms on Left, Signature on Right */}
           <div className="flex flex-col sm:flex-row justify-between items-end gap-6 text-xs pt-1">
-            <div className="max-w-md text-[10px] text-stone-500 leading-relaxed">
-              <span className="font-bold text-stone-700 uppercase tracking-wider block mb-1">
-                TERMS & CONDITIONS:
-              </span>
-              <p className="whitespace-pre-line">
-                {(() => {
-                  const rawTerms = data.termsAndConditions;
-                  if (isQuotation) {
-                    if (!rawTerms || rawTerms.includes('commence design and procurement') || rawTerms.includes('commence procurement') || rawTerms.includes('advance on approval, 40% on material delivery')) {
-                      return DEFAULT_QUOTATION_TERMS;
+            <div className="max-w-md text-[10px] text-stone-500 leading-relaxed space-y-3">
+              {isQuotation && data.notes && data.notes.trim() && (
+                <div>
+                  <span className="font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                    PROJECT SPECIFIC NOTES:
+                  </span>
+                  <p className="whitespace-pre-wrap break-words text-stone-600 leading-relaxed">
+                    {data.notes}
+                  </p>
+                </div>
+              )}
+              <div>
+                <span className="font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                  TERMS & CONDITIONS:
+                </span>
+                <p className="whitespace-pre-line">
+                  {(() => {
+                    const rawTerms = data.termsAndConditions;
+                    if (isQuotation) {
+                      if (!rawTerms || rawTerms.includes('commence design and procurement') || rawTerms.includes('commence procurement') || rawTerms.includes('advance on approval, 40% on material delivery')) {
+                        return DEFAULT_QUOTATION_TERMS;
+                      }
+                      return rawTerms;
+                    } else {
+                      if (!rawTerms || rawTerms.includes('Quotation valid for') || rawTerms.includes('pipe installation') || rawTerms.includes('plumbing fittings') || rawTerms.includes('commence design and procurement')) {
+                        return DEFAULT_INVOICE_TERMS;
+                      }
+                      return rawTerms;
                     }
-                    return rawTerms;
-                  } else {
-                    if (!rawTerms || rawTerms.includes('Quotation valid for') || rawTerms.includes('pipe installation') || rawTerms.includes('plumbing fittings') || rawTerms.includes('commence design and procurement')) {
-                      return DEFAULT_INVOICE_TERMS;
-                    }
-                    return rawTerms;
-                  }
-                })()}
-              </p>
+                  })()}
+                </p>
+              </div>
             </div>
 
             <div className="text-right shrink-0">
