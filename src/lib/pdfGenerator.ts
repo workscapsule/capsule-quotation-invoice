@@ -296,7 +296,11 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
             const imgHeight = 13.5; // mm (4:3 aspect ratio)
             const cellX = hookData.cell.x + (hookData.cell.width - imgWidth) / 2;
             const cellY = hookData.cell.y + (hookData.cell.height - imgHeight) / 2;
-            doc.addImage(imgData, 'JPEG', cellX, cellY, imgWidth, imgHeight);
+            let imgFormat: 'JPEG' | 'PNG' = 'JPEG';
+            if (typeof imgData === 'string' && (imgData.includes('image/png') || imgData.startsWith('data:image/png'))) {
+              imgFormat = 'PNG';
+            }
+            doc.addImage(imgData, imgFormat, cellX, cellY, imgWidth, imgHeight);
 
             // Subtle border around image
             doc.setDrawColor(215, 215, 215);
@@ -619,7 +623,8 @@ export async function generateAndDownloadPDF({ data, type, logoBase64, upiQrBase
     note: `${docNumber}`
   });
 
-  const doc = buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBase64: finalUpiQr });
+  const finalLogoBase64 = logoBase64 || await getBase64ImageFromUrl(company.logoUrl || '/capsule-logo.png');
+  const doc = buildPDFDoc({ data, type, logoBase64: finalLogoBase64 || undefined, itemImagesBase64, upiQrBase64: finalUpiQr });
   const filename = `${isQuotation ? (data.quotationNumber || 'QUOTATION') : (data.invoiceNumber || 'INVOICE')}.pdf`;
 
   if (typeof window !== 'undefined') {

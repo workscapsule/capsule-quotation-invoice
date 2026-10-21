@@ -23,26 +23,39 @@ function getLogoBase64(): string | undefined {
   return undefined;
 }
 
-function getItemImagesBase64(items: any[]): (string | null)[] {
-  return (items || []).map((item) => {
-    try {
-      const imgUrl = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
-      if (imgUrl.startsWith('/')) {
-        const cleanPath = imgUrl.startsWith('/') ? imgUrl.slice(1) : imgUrl;
-        const filePath = path.join(process.cwd(), 'public', cleanPath);
-        if (fs.existsSync(filePath)) {
-          const fileData = fs.readFileSync(filePath);
-          const ext = path.extname(filePath).slice(1) || 'jpeg';
-          return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${fileData.toString('base64')}`;
+async function getItemImagesBase64(items: any[]): Promise<(string | null)[]> {
+  return Promise.all(
+    (items || []).map(async (item) => {
+      try {
+        const rawUrl = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
+        if (!rawUrl) return null;
+        if (rawUrl.startsWith('data:image/')) return rawUrl;
+
+        const cleanUrl = rawUrl.split('?')[0].split('#')[0];
+        if (cleanUrl.startsWith('/') || !cleanUrl.startsWith('http')) {
+          const cleanPath = cleanUrl.replace(/^\/+/, '');
+          const filePath = path.join(process.cwd(), 'public', cleanPath);
+          if (fs.existsSync(filePath)) {
+            const fileData = fs.readFileSync(filePath);
+            const ext = path.extname(filePath).slice(1).toLowerCase() || 'jpeg';
+            const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : `image/${ext}`;
+            return `data:${mime};base64,${fileData.toString('base64')}`;
+          }
+        } else if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+          const res = await fetch(cleanUrl);
+          if (res.ok) {
+            const arrayBuffer = await res.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const contentType = res.headers.get('content-type') || 'image/jpeg';
+            return `data:${contentType};base64,${buffer.toString('base64')}`;
+          }
         }
-      } else if (imgUrl.startsWith('data:image/')) {
-        return imgUrl;
+      } catch (e) {
+        console.warn('Failed to read item image on server:', e);
       }
-    } catch (e) {
-      console.warn('Failed to read item image on server:', e);
-    }
-    return null;
-  });
+      return null;
+    })
+  );
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -73,11 +86,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       note: `${quotation.quotationNumber}`
     });
 
+    const itemImagesBase64 = await getItemImagesBase64(quotation.items);
+
     const doc = buildPDFDoc({
       data: { ...quotation, companySettings },
       type: 'QUOTATION',
       logoBase64: getLogoBase64(),
-      itemImagesBase64: getItemImagesBase64(quotation.items),
+      itemImagesBase64,
       upiQrBase64
     });
 

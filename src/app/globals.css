@@ -58,6 +58,15 @@
     display: block !important;
   }
 
+  .lg\:pl-72 {
+    padding-left: 0 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   .printable-document {
     box-shadow: none !important;
     border: none !important;

@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 const SUPABASE_DATABASE_URL =
-  "postgresql://postgres.zksmzotvrdqphrtperbk:CapsuleDB2026SecureKey@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres";
+  "postgresql://postgres.zksmzotvrdqphrtperbk:CapsuleDB2026SecureKey@15.164.120.176:5432/postgres?sslmode=require";
 
 // Ensure DATABASE_URL is never empty string or invalid on serverless deployments (e.g. Vercel)
 if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '' || process.env.DATABASE_URL.startsWith('file:')) {

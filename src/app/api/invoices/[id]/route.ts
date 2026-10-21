@@ -213,6 +213,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           payments: true
         }
       });
+    }, {
+      timeout: 25000,
+      maxWait: 15000
     });
 
     return NextResponse.json(updated);

@@ -608,8 +608,9 @@ export default function CategoryProjectItemEntryPage() {
                         value={item.categoryName}
                         onChange={(e) => {
                           const newCat = e.target.value;
+                          const oldAutoImg = resolveProductImage(item.categoryName, item.type, item.description);
                           updateItem(idx, 'categoryName', newCat);
-                          if (!item.imageUrl) {
+                          if (!item.imageUrl || item.imageUrl === oldAutoImg) {
                             updateItem(idx, 'imageUrl', resolveProductImage(newCat, item.type, item.description));
                           }
                         }}

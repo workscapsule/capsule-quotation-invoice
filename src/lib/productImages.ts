@@ -81,6 +81,14 @@ export const PRODUCT_IMAGE_PRESETS: ProductImagePreset[] = [
     tags: ['bathroom', 'vanity', 'plumbing', 'washbasin', 'mirror', 'sink', 'toilet', 'sanitary']
   },
   {
+    id: 'plumbing-pipes',
+    name: 'Plumbing & Sanitary (PVC / CPVC Pipes & Fittings)',
+    category: 'Plumbing',
+    url: '/products/plumbing-pipes.jpg',
+    description: 'High-grade PVC, CPVC & UPVC pipes, elbows, tees, couplers, valves, and Star Bond solvent cement for water supply and drainage works.',
+    tags: ['plumbing', 'pipe', 'pipes', 'pvc', 'cpvc', 'upvc', 'fittings', 'drainage', 'sanitary', 'water supply', 'star bond', 'solvent', 'valve', 'bend', 'elbow', 'tee', 'plumber']
+  },
+  {
     id: 'balcony-terrace',
     name: 'Terrace & Balcony Garden (Pergola & Vertical Wall)',
     category: 'Terrace Design',
@@ -155,8 +163,26 @@ export function resolveProductImage(
   if (combined.includes('pop') || combined.includes('false ceiling') || combined.includes('cove light') || combined.includes('gypsum')) {
     return '/products/pop-ceiling.jpg';
   }
-  if (combined.includes('vanity') || combined.includes('bathroom') || combined.includes('plumbing') || combined.includes('washbasin')) {
+  // Plumbing pipes / fittings / sanitary lines
+  if (
+    combined.includes('pipe') ||
+    combined.includes('pvc') ||
+    combined.includes('cpvc') ||
+    combined.includes('upvc') ||
+    combined.includes('fitting') ||
+    combined.includes('drainage') ||
+    combined.includes('star bond') ||
+    combined.includes('solvent') ||
+    combined.includes('water supply') ||
+    combined.includes('sewage')
+  ) {
+    return '/products/plumbing-pipes.jpg';
+  }
+  if (combined.includes('vanity') || combined.includes('washbasin') || combined.includes('basin') || combined.includes('sink') || combined.includes('mirror')) {
     return '/products/bathroom-vanity.jpg';
+  }
+  if (combined.includes('plumbing') || combined.includes('sanitary') || combined.includes('bath') || combined.includes('toilet')) {
+    return '/products/plumbing-pipes.jpg';
   }
   if (combined.includes('terrace') || combined.includes('balcony') || combined.includes('landscape') || combined.includes('garden')) {
     return '/products/balcony-terrace.jpg';
@@ -181,7 +207,8 @@ export function resolveProductImage(
   if (cat.includes('temple')) return '/products/temple-space.jpg';
   if (cat.includes('crockery')) return '/products/crockery-unit.jpg';
   if (cat.includes('pop') || cat.includes('ceiling')) return '/products/pop-ceiling.jpg';
-  if (cat.includes('plumbing') || cat.includes('bath')) return '/products/bathroom-vanity.jpg';
+  if (cat.includes('plumbing') || cat.includes('sanitary')) return '/products/plumbing-pipes.jpg';
+  if (cat.includes('bath') || cat.includes('vanity')) return '/products/bathroom-vanity.jpg';
   if (cat.includes('landscape') || cat.includes('terrace') || cat.includes('balcony')) return '/products/balcony-terrace.jpg';
   if (cat.includes('fabrication')) return '/products/partition-fabrication.jpg';
   if (cat.includes('tile') || cat.includes('granite') || cat.includes('marble')) return '/products/marble-tiles.jpg';
@@ -212,6 +239,7 @@ export async function getBase64ImageFromUrl(imageUrl: string): Promise<string | 
     }
 
     const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
 
     return new Promise((resolve) => {
@@ -227,7 +255,39 @@ export async function getBase64ImageFromUrl(imageUrl: string): Promise<string | 
       reader.readAsDataURL(blob);
     });
   } catch (err) {
-    console.warn('Failed to load image for base64:', imageUrl, err);
-    return null;
+    console.warn('Direct fetch failed for base64 image, using canvas fallback:', imageUrl, err);
+    // Canvas fallback: reliable if fetch was hindered by origin/cors or headers
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined') {
+        resolve(null);
+        return;
+      }
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || 400;
+            canvas.height = img.naturalHeight || 300;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+              imageBase64Cache.set(imageUrl, dataUrl);
+              resolve(dataUrl);
+              return;
+            }
+          } catch (e) {
+            console.warn('Canvas conversion failed:', e);
+          }
+          resolve(null);
+        };
+        img.onerror = () => resolve(null);
+        img.src = imageUrl;
+      } catch {
+        resolve(null);
+      }
+    });
   }
 }
