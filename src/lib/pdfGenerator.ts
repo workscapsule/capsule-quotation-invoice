@@ -252,16 +252,14 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     return [
       '', // Column 0: Product Image (drawn in didDrawCell)
       scopeHeader + desc,
-      `${item.quantity ?? 1}`,
-      item.unit || 'Nos',
-      formatPdfCurrency(item.rate ?? 0),
-      formatPdfCurrency(item.amount ?? 0)
+      item.unit || 'Sq.ft',
+      formatPdfCurrency(2500)
     ];
   });
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'QTY', 'UNIT', 'RATE', 'TOTAL']],
+    head: [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'UNIT', 'RATE']],
     body: tableRows,
     theme: 'plain',
     headStyles: {
@@ -279,11 +277,9 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     },
     columnStyles: {
       0: { cellWidth: 22, halign: 'center' }, // Product Image column
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 15, halign: 'center' }, // QTY
-      3: { cellWidth: 15, halign: 'center' }, // UNIT (between QTY and RATE)
-      4: { cellWidth: 25, halign: 'right' },  // RATE
-      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL
+      1: { cellWidth: 'auto' }, // Type & work specifications
+      2: { cellWidth: 22, halign: 'center' }, // UNIT
+      3: { cellWidth: 32, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // RATE
     },
     margin: { left: margin, right: margin },
     didDrawCell: (hookData) => {
@@ -332,75 +328,15 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
 
   let currentY = finalTableY + 3.5;
 
-  // Check if totals section will overflow the page
+  // Check if payment section will overflow the page
   const remainingSpace = pageHeight - currentY - margin;
-  if (remainingSpace < 65) {
+  if (remainingSpace < 45) {
     doc.addPage();
     currentY = margin + 5;
   }
 
-  // --- 4. TOTALS SECTION (Right) & PAYMENT INFO (Left) ---
-  const totalsWidth = 65;
-  const totalsX = pageWidth - margin - totalsWidth;
-  const totalsRightX = pageWidth - margin - 1;
-  let totalsY = currentY + 1;
-
-  const drawTotalLine = (label: string, value: string, isBold = false, isLarge = false, isAccent = false) => {
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    doc.setFontSize(isLarge ? 9.0 : 7.2);
-    if (isAccent) doc.setTextColor(179, 115, 86);
-    else if (isLarge) doc.setTextColor(15, 15, 15);
-    else doc.setTextColor(70, 70, 70);
-
-    doc.text(label, totalsX, totalsY);
-    doc.text(value, totalsRightX, totalsY, { align: 'right' });
-    totalsY += isLarge ? 5.0 : 3.8;
-  };
-
-  const subtotal = data.subtotal ?? 0;
-  const discountAmount = data.discountAmount ?? 0;
-  const cgstAmount = data.cgstAmount ?? 0;
-  const sgstAmount = data.sgstAmount ?? 0;
-  const igstAmount = data.igstAmount ?? 0;
-  const otherChargesAmount = data.otherChargesAmount ?? 0;
-  const grandTotal = data.roundedGrandTotal ?? data.grandTotal ?? 0;
-
-  drawTotalLine('SUBTOTAL', formatPdfCurrency(subtotal), true);
-
-  if (discountAmount > 0) {
-    drawTotalLine(`Discount (${data.discountValue ?? 0}%):`, `- ${formatPdfCurrency(discountAmount)}`);
-  }
-
-  if (cgstAmount > 0 || sgstAmount > 0) {
-    const half = (data.gstRate || 18) / 2;
-    drawTotalLine(`CGST (${half}%):`, formatPdfCurrency(cgstAmount));
-    drawTotalLine(`SGST (${half}%):`, formatPdfCurrency(sgstAmount));
-  } else if (igstAmount > 0) {
-    drawTotalLine(`IGST (${data.gstRate || 18}%):`, formatPdfCurrency(igstAmount));
-  }
-
-  if (otherChargesAmount > 0) {
-    drawTotalLine('Other Charges:', formatPdfCurrency(otherChargesAmount));
-  }
-
-  // Thin line above total
-  doc.setDrawColor(210, 210, 210);
-  doc.setLineWidth(0.2);
-  doc.line(totalsX, totalsY - 0.8, totalsRightX, totalsY - 0.8);
-  totalsY += 1.8;
-
-  drawTotalLine('TOTAL', formatPdfCurrency(grandTotal), true, true);
-
-  // For Invoices: Paid & Balance Due
-  if (!isQuotation) {
-    const totalPaid = data.totalPaid ?? 0;
-    const balanceDue = data.balanceDue ?? grandTotal - totalPaid;
-    drawTotalLine('Total Paid:', formatPdfCurrency(totalPaid));
-    drawTotalLine('Balance Due:', formatPdfCurrency(balanceDue), true, false, true);
-  }
-
-  // Left Column: PAYMENT INFO & AMOUNT IN WORDS
-  const wordsBoxWidth = contentWidth - totalsWidth - 10;
+  // --- 4. PAYMENT INFO & UPI QR CODE ---
+  const paymentBoxWidth = 120;
   let paymentY = currentY + 1;
   const paymentStartTopY = paymentY;
 
@@ -426,7 +362,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     paymentY += 3.2;
   }
   if (company.branch) {
-    const maxBranchW = wordsBoxWidth - 25;
+    const maxBranchW = paymentBoxWidth - 25;
     const branchLines = doc.splitTextToSize(`Branch: ${company.branch}`, maxBranchW);
     doc.text(branchLines[0] || `Branch: ${company.branch}`, margin, paymentY);
     paymentY += 3.2;
@@ -440,7 +376,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
       const qrSize = 16.5; // mm
       const qrBoxWidth = qrSize + 4.5;
       const qrBoxHeight = qrSize + 7.5;
-      const qrBoxX = margin + wordsBoxWidth - qrBoxWidth;
+      const qrBoxX = margin + paymentBoxWidth - qrBoxWidth;
       const qrBoxY = paymentStartTopY + 0.5;
 
       // QR container box
@@ -467,35 +403,8 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     }
   }
 
-  // Amount in words (with styled box outline)
-  const words = numberToWordsINR(grandTotal);
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(6.8);
-  const wordLines = doc.splitTextToSize(words, wordsBoxWidth - 6);
-  const wordsBoxHeight = 4 + 3.2 + wordLines.length * 3.2 + 2;
-
-  // Draw box outline with rounded corners and light fill
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.25);
-  doc.setFillColor(252, 252, 252);
-  doc.roundedRect(margin, paymentY, wordsBoxWidth, wordsBoxHeight, 1.5, 1.5, 'FD');
-
-  // Title inside box
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.setTextColor(40, 40, 40);
-  doc.text('AMOUNT IN WORDS:', margin + 3, paymentY + 3.8);
-
-  // Content inside box
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(6.8);
-  doc.setTextColor(70, 70, 70);
-  doc.text(wordLines, margin + 3, paymentY + 7.2);
-
-  paymentY += wordsBoxHeight + 2;
-
   // --- 5. TERMS & SIGNATURE SECTION ---
-  let sectionDividerY = Math.max(totalsY, paymentY) + 3;
+  let sectionDividerY = paymentY + 2;
 
   const hasNotes = isQuotation && Boolean(data.notes && String(data.notes).trim());
   const termsWidth = contentWidth - 52;

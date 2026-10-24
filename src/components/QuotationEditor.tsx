@@ -89,10 +89,10 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
           imageUrl: it.imageUrl || null,
           type: it.type || '',
           description: it.description || '',
-          quantity: Number(it.quantity) || 1,
-          unit: it.unit || 'Nos',
-          rate: Number(it.rate) || 0,
-          amount: Number(it.amount) || 0,
+          quantity: 1,
+          unit: it.unit || 'Sq.ft',
+          rate: 2500,
+          amount: 2500,
           sortOrder: it.sortOrder
         }))
       : [
@@ -103,8 +103,8 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
             description: '',
             quantity: 1,
             unit: 'Sq.ft',
-            rate: 0,
-            amount: 0
+            rate: 2500,
+            amount: 2500
           }
         ]
   );
@@ -203,9 +203,9 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
         type: '',
         description: '',
         quantity: 1,
-        unit: 'Nos',
-        rate: 0,
-        amount: 0
+        unit: 'Sq.ft',
+        rate: 2500,
+        amount: 2500
       }
     ]);
   };
@@ -256,17 +256,17 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
     const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
     const cleanedItems = items.length === 0
-      ? [{ categoryName: 'Modular Kitchen', imageUrl: '/products/modular-kitchen.jpg', type: 'Work Item', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      ? [{ categoryName: 'Modular Kitchen', imageUrl: '/products/modular-kitchen.jpg', type: 'Work Item', description: '', quantity: 1, unit: 'Sq.ft', rate: 2500, amount: 2500 }]
       : items.map(it => ({
           ...it,
           categoryName: it.categoryName?.trim() || 'General',
           imageUrl: it.imageUrl || resolveProductImage(it.categoryName, it.type, it.description),
           type: it.type || '',
           description: it.description || '',
-          quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
-          unit: it.unit || 'Nos',
-          rate: isNaN(Number(it.rate)) ? 0 : Number(it.rate),
-          amount: (isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity)) * (isNaN(Number(it.rate)) ? 0 : Number(it.rate))
+          quantity: 1,
+          unit: it.unit || 'Sq.ft',
+          rate: 2500,
+          amount: 2500
         }));
 
     setSaving(true);
@@ -631,14 +631,12 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
             <thead>
               <tr className="border-b border-[#E8E2D9] bg-[#F7F4EE] text-[11px] font-bold uppercase tracking-wider text-stone-600">
                 <th className="py-3 px-3 w-10 text-center">#</th>
-                <th className="py-3 px-3 w-44">Category</th>
+                <th className="py-3 px-3 w-48">Category</th>
                 <th className="py-3 px-2 w-28 text-center">Product Image</th>
-                <th className="py-3 px-3 w-48">Type (Free Text)</th>
+                <th className="py-3 px-3 w-52">Type (Free Text)</th>
                 <th className="py-3 px-3">Description / Specs</th>
-                <th className="py-3 px-3 w-24 text-right">Quantity</th>
-                <th className="py-3 px-3 w-28">Unit</th>
-                <th className="py-3 px-3 w-32 text-right">Rate (₹)</th>
-                <th className="py-3 px-3 w-36 text-right">Amount (₹)</th>
+                <th className="py-3 px-3 w-32">Unit</th>
+                <th className="py-3 px-3 w-36 text-right">Rate (₹)</th>
                 <th className="py-3 px-3 w-20 text-center">Actions</th>
               </tr>
             </thead>
@@ -726,18 +724,6 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
                     />
                   </td>
 
-                  {/* Quantity */}
-                  <td className="py-3 px-3 align-top text-right">
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                      className="w-full text-xs rounded border border-stone-300 p-1.5 bg-white text-right font-mono focus:ring-1 focus:ring-[#C88A6E]"
-                    />
-                  </td>
-
                   {/* Unit Selector or Custom */}
                   <td className="py-3 px-3 align-top">
                     <input
@@ -755,22 +741,11 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
                     </datalist>
                   </td>
 
-                  {/* Manual Rate Entry (Strictly NO FIXED PRICES!) */}
+                  {/* Fixed Rate 2,500 */}
                   <td className="py-3 px-3 align-top text-right">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="0.00"
-                      value={item.rate || ''}
-                      onChange={(e) => updateItem(idx, 'rate', e.target.value)}
-                      className="w-full text-xs rounded border border-stone-300 p-1.5 bg-white text-right font-mono font-semibold focus:ring-1 focus:ring-[#C88A6E]"
-                    />
-                  </td>
-
-                  {/* Auto-calculated Amount */}
-                  <td className="py-3 px-3 align-top text-right font-mono font-bold text-stone-900">
-                    {formatCurrency(item.quantity * item.rate)}
+                    <div className="w-full text-xs rounded border border-stone-200 p-1.5 bg-stone-100 text-right font-mono font-bold text-stone-800">
+                      ₹2,500
+                    </div>
                   </td>
 
                   {/* Duplicate and Delete Buttons */}
@@ -811,245 +786,46 @@ export default function QuotationEditor({ initialData, isEdit = false }: Quotati
             <Plus className="w-3.5 h-3.5" />
             <span>+ Add Another Work Item</span>
           </button>
-          <div className="text-xs text-stone-500 font-medium">
-            Subtotal: <span className="font-bold text-stone-900 font-mono">{formatCurrency(calcResult.subtotal)}</span>
-          </div>
         </div>
       </div>
 
-      {/* Financial Calculations & Settings Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Side: Additional Charges & Terms */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Additional Charges Box */}
-          <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
-                Other Charges (Transportation, Installation, etc.)
-              </h3>
-              <button
-                type="button"
-                onClick={addCharge}
-                className="text-xs font-semibold text-[#C88A6E] hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Charge</span>
-              </button>
-            </div>
-
-            {additionalCharges.length === 0 ? (
-              <p className="text-xs text-stone-400 italic">No additional charges added.</p>
-            ) : (
-              <div className="space-y-2">
-                {additionalCharges.map((ch, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Charge description (e.g. Transportation, Loading)"
-                      value={ch.description}
-                      onChange={(e) => updateCharge(idx, 'description', e.target.value)}
-                      className="flex-1 text-xs rounded border border-stone-300 p-2 bg-white"
-                    />
-                    <div className="relative w-36">
-                      <span className="absolute left-2.5 top-2 text-xs text-stone-400">₹</span>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="0.00"
-                        value={ch.amount || ''}
-                        onChange={(e) => updateCharge(idx, 'amount', e.target.value)}
-                        className="w-full text-xs rounded border border-stone-300 p-2 pl-6 bg-white text-right font-mono"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => deleteCharge(idx)}
-                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+      {/* Notes & Terms Section */}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-2">
+            <label className="block text-xs font-semibold text-stone-700">
+              Project Specific Notes
+            </label>
+            <textarea
+              rows={4}
+              placeholder="Special instructions, warranty details or client preferences..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white"
+            />
           </div>
-
-          {/* Notes & Terms Box */}
-          <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Project Specific Notes
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Special instructions, warranty details or client preferences..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Terms and Conditions
-              </label>
-              <textarea
-                rows={4}
-                value={termsAndConditions}
-                onChange={(e) => setTermsAndConditions(e.target.value)}
-                className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white font-mono"
-              />
-            </div>
+          <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-2">
+            <label className="block text-xs font-semibold text-stone-700">
+              Terms and Conditions
+            </label>
+            <textarea
+              rows={4}
+              value={termsAndConditions}
+              onChange={(e) => setTermsAndConditions(e.target.value)}
+              className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white font-mono"
+            />
           </div>
         </div>
 
-        {/* Right Side: LIVE FINANCIAL CALCULATION BREAKDOWN */}
-        <div className="lg:col-span-5">
-          <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-4 sticky top-20">
-            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2">
-              <Calculator className="w-4 h-4 text-[#C88A6E]" />
-              Real-time Financial Summary
-            </h3>
-
-            {/* Subtotal */}
-            <div className="flex justify-between items-center text-xs py-1 border-b border-stone-100">
-              <span className="text-stone-600 font-medium">Subtotal ({items.length} items)</span>
-              <span className="font-mono font-semibold text-stone-900">
-                {formatCurrency(calcResult.subtotal)}
-              </span>
-            </div>
-
-            {/* Discount Configuration */}
-            <div className="py-2 border-b border-stone-100 space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-stone-600 font-medium">Discount</span>
-                <span className="font-mono font-semibold text-rose-600">
-                  - {formatCurrency(calcResult.discountAmount)}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                  className="text-xs rounded border border-stone-300 p-1.5 bg-white"
-                >
-                  <option value="NONE">No Discount</option>
-                  <option value="PERCENTAGE">Percentage (%)</option>
-                  <option value="FIXED">Fixed Amount (₹)</option>
-                </select>
-                {discountType !== 'NONE' && (
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder={discountType === 'PERCENTAGE' ? 'Discount %' : 'Discount ₹'}
-                    value={discountValue || ''}
-                    onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
-                    className="text-xs rounded border border-stone-300 p-1.5 bg-white font-mono text-right"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Taxable Amount */}
-            <div className="flex justify-between items-center text-xs py-1 border-b border-stone-100">
-              <span className="text-stone-600 font-semibold">Taxable Amount</span>
-              <span className="font-mono font-bold text-stone-900">
-                {formatCurrency(calcResult.taxableAmount)}
-              </span>
-            </div>
-
-            {/* GST Tax Mode & Rate Selector */}
-            <div className="py-2 border-b border-stone-100 space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-stone-600 font-medium">Tax Mode & GST</span>
-                <span className="font-mono font-semibold text-stone-900">
-                  {formatCurrency(calcResult.cgstAmount + calcResult.sgstAmount + calcResult.igstAmount)}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={taxMode}
-                  onChange={(e) => setTaxMode(e.target.value as TaxMode)}
-                  className="text-xs rounded border border-stone-300 p-1.5 bg-white"
-                >
-                  <option value="CGST_SGST">CGST + SGST</option>
-                  <option value="IGST">IGST (Inter-state)</option>
-                  <option value="EXEMPT">Tax Exempt / None</option>
-                </select>
-                {taxMode !== 'EXEMPT' && (
-                  <select
-                    value={gstRate}
-                    onChange={(e) => setGstRate(Number(e.target.value))}
-                    className="text-xs rounded border border-stone-300 p-1.5 bg-white font-mono"
-                  >
-                    <option value={0}>0% GST</option>
-                    <option value={5}>5% GST</option>
-                    <option value={12}>12% GST</option>
-                    <option value={18}>18% GST (Standard)</option>
-                    <option value={28}>28% GST</option>
-                  </select>
-                )}
-              </div>
-
-              {/* Tax Breakdowns */}
-              {taxMode === 'CGST_SGST' && (
-                <div className="space-y-1 pt-1 text-[11px] text-stone-500 font-mono">
-                  <div className="flex justify-between">
-                    <span>CGST ({gstRate / 2}%):</span>
-                    <span>{formatCurrency(calcResult.cgstAmount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>SGST ({gstRate / 2}%):</span>
-                    <span>{formatCurrency(calcResult.sgstAmount)}</span>
-                  </div>
-                </div>
-              )}
-              {taxMode === 'IGST' && (
-                <div className="pt-1 text-[11px] text-stone-500 font-mono flex justify-between">
-                  <span>IGST ({gstRate}%):</span>
-                  <span>{formatCurrency(calcResult.igstAmount)}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Other Charges */}
-            {calcResult.otherChargesAmount > 0 && (
-              <div className="flex justify-between items-center text-xs py-1 border-b border-stone-100">
-                <span className="text-stone-600 font-medium">Other Charges</span>
-                <span className="font-mono font-semibold text-stone-900">
-                  {formatCurrency(calcResult.otherChargesAmount)}
-                </span>
-              </div>
-            )}
-
-            {/* Grand Total */}
-            <div className="pt-2">
-              <div className="bg-[#FAF7F2] p-4 rounded-xl border border-[#E8E2D9] space-y-1">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-xs font-bold text-stone-700 uppercase tracking-wider">
-                    Grand Total
-                  </span>
-                  <span className="text-xl font-black text-[#171514] font-mono">
-                    {formatCurrency(calcResult.roundedGrandTotal)}
-                  </span>
-                </div>
-                {calcResult.grandTotal !== calcResult.roundedGrandTotal && (
-                  <div className="text-[11px] text-stone-400 text-right font-mono">
-                    Exact: {formatCurrency(calcResult.grandTotal)}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full py-3 rounded-lg bg-[#C88A6E] hover:bg-[#B37356] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-colors flex items-center justify-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Processing...' : isEdit ? 'Update Quotation' : 'Save Quotation'}</span>
-            </button>
-          </div>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-8 py-3 rounded-xl bg-[#C88A6E] hover:bg-[#B37356] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            <span>{saving ? 'Processing...' : isEdit ? 'Update Quotation' : 'Save Quotation'}</span>
+          </button>
         </div>
       </div>
 
