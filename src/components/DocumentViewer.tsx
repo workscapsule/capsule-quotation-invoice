@@ -421,8 +421,10 @@ export default function DocumentViewer({
                 <tr className="border-t-2 border-b border-stone-800 text-[10.5px] uppercase tracking-wider font-bold text-stone-900">
                   <th className="py-2.5 px-2 w-24 text-center">PRODUCT IMAGE</th>
                   <th className="py-2.5 px-2">TYPE & WORK SPECIFICATIONS</th>
-                  <th className="py-2.5 px-2 text-center w-24">UNIT</th>
-                  <th className="py-2.5 px-2 text-right w-32">RATE</th>
+                  <th className="py-2.5 px-2 text-center w-16">QTY</th>
+                  <th className="py-2.5 px-2 text-center w-16">UNIT</th>
+                  <th className="py-2.5 px-2 text-right w-24">AMOUNT (PRICE)</th>
+                  <th className="py-2.5 px-2 text-right w-28">TOTAL</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -455,11 +457,17 @@ export default function DocumentViewer({
                         </div>
                       )}
                     </td>
+                    <td className="py-2.5 px-2 text-center font-medium text-stone-800 align-middle">
+                      {item.quantity}
+                    </td>
                     <td className="py-2.5 px-2 text-center text-stone-600 font-medium text-[11px] align-middle">
                       {item.unit || 'Sq.ft'}
                     </td>
+                    <td className="py-2.5 px-2 text-right font-mono text-stone-700 align-middle">
+                      {formatCurrency(item.rate)}
+                    </td>
                     <td className="py-2.5 px-2 text-right font-mono font-bold text-stone-950 align-middle">
-                      ₹2,500
+                      {formatCurrency(item.amount)}
                     </td>
                   </tr>
                   );
@@ -469,12 +477,13 @@ export default function DocumentViewer({
             <div className="border-b-2 border-stone-800 w-full" />
           </div>
 
-          {/* PAYMENT SECTION */}
+          {/* TOTALS & PAYMENT SECTION */}
           <div className="pt-2">
             <div className="flex flex-col sm:flex-row justify-between items-start gap-8">
-              {/* Payment Info & UPI QR Code */}
-              <div className="w-full max-w-md space-y-3 text-xs">
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+              {/* Left Column: Payment Info & Amount in Words */}
+              <div className="w-full sm:flex-1 space-y-3 text-xs">
+                {/* Payment Info & UPI QR Code */}
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4 max-w-md">
                   <div className="flex-1 space-y-0.5">
                     <span className="text-[10px] font-bold text-stone-900 tracking-[0.15em] uppercase block mb-1">
                       PAYMENT INFO:
@@ -507,6 +516,94 @@ export default function DocumentViewer({
                     </div>
                   )}
                 </div>
+
+                {/* Amount in Words (Box Outline) */}
+                <div className="p-3 rounded-lg border border-stone-300 bg-stone-50/70 print:bg-white print:border-stone-400 max-w-md shadow-2xs">
+                  <span className="text-[10px] font-bold text-stone-800 tracking-wider uppercase block">
+                    AMOUNT IN WORDS:
+                  </span>
+                  <p className="text-[11px] text-stone-700 italic mt-0.5 font-serif leading-relaxed">
+                    {numberToWordsINR(data.roundedGrandTotal)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column: Financial Calculations */}
+              <div className="w-full sm:w-72 space-y-1.5 text-xs text-right">
+                <div className="flex justify-between items-baseline py-0.5">
+                  <span className="text-stone-600 font-bold uppercase tracking-wider text-[11px]">SUBTOTAL</span>
+                  <span className="font-mono font-semibold text-stone-900">
+                    {formatCurrency(data.subtotal)}
+                  </span>
+                </div>
+
+                {data.discountAmount > 0 && (
+                  <div className="flex justify-between items-baseline py-0.5 text-rose-600">
+                    <span className="text-[11px]">
+                      Discount {data.discountType === 'PERCENTAGE' ? `(${data.discountValue}%)` : ''}
+                    </span>
+                    <span className="font-mono font-semibold">
+                      - {formatCurrency(data.discountAmount)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tax Breakdown */}
+                {data.taxMode === 'CGST_SGST' ? (
+                  <>
+                    <div className="flex justify-between items-baseline py-0.5 text-stone-500 font-mono text-[11px]">
+                      <span>CGST ({data.gstRate / 2}%)</span>
+                      <span>{formatCurrency(data.cgstAmount)}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline py-0.5 text-stone-500 font-mono text-[11px]">
+                      <span>SGST ({data.gstRate / 2}%)</span>
+                      <span>{formatCurrency(data.sgstAmount)}</span>
+                    </div>
+                  </>
+                ) : data.taxMode === 'IGST' ? (
+                  <div className="flex justify-between items-baseline py-0.5 text-stone-500 font-mono text-[11px]">
+                    <span>IGST ({data.gstRate}%)</span>
+                    <span>{formatCurrency(data.igstAmount)}</span>
+                  </div>
+                ) : null}
+
+                {/* Additional Charges */}
+                {data.additionalCharges?.map((ch: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-baseline py-0.5 text-[11px] text-stone-600">
+                    <span>{ch.description}</span>
+                    <span className="font-mono">{formatCurrency(ch.amount)}</span>
+                  </div>
+                ))}
+
+                {/* Grand Total */}
+                <div className="pt-2 border-t border-stone-200">
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-extrabold text-stone-950 uppercase tracking-widest text-xs">
+                      TOTAL
+                    </span>
+                    <span className="text-base font-extrabold text-stone-950 font-mono">
+                      {formatCurrency(data.roundedGrandTotal)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Invoice Payment Tracking */}
+                {!isQuotation && (
+                  <div className="pt-2 border-t border-stone-200 space-y-1 text-xs">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-stone-500 text-[11px]">Total Paid:</span>
+                      <span className="font-mono font-semibold text-emerald-600">
+                        {formatCurrency(data.totalPaid)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-baseline pt-1 border-t border-stone-100">
+                      <span className="text-stone-900 font-bold uppercase text-[11px]">Balance Due:</span>
+                      <span className="font-mono font-black text-[#B37356] text-sm">
+                        {formatCurrency(data.balanceDue)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

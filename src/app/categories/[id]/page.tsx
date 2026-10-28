@@ -108,8 +108,8 @@ export default function CategoryProjectItemEntryPage() {
             description: '',
             quantity: 1,
             unit: 'Sq.ft',
-            rate: 2500,
-            amount: 2500
+            rate: 0,
+            amount: 0
           }
         ]);
 
@@ -163,8 +163,8 @@ export default function CategoryProjectItemEntryPage() {
         description: '',
         quantity: 1,
         unit: 'Sq.ft',
-        rate: 2500,
-        amount: 2500
+        rate: 0,
+        amount: 0
       }
     ]);
   };
@@ -213,18 +213,22 @@ export default function CategoryProjectItemEntryPage() {
     const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
     const cleanedItems = items.length === 0
-      ? [{ categoryName: category?.name || 'Modular Kitchen', imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''), type: 'Design & Work', description: '', quantity: 1, unit: 'Sq.ft', rate: 2500, amount: 2500 }]
-      : items.map(it => ({
-          ...it,
-          categoryName: it.categoryName?.trim() || category?.name || 'General',
-          imageUrl: it.imageUrl || resolveProductImage(it.categoryName, it.type, it.description),
-          type: it.type || '',
-          description: it.description || '',
-          quantity: 1,
-          unit: it.unit || 'Sq.ft',
-          rate: 2500,
-          amount: 2500
-        }));
+      ? [{ categoryName: category?.name || 'Modular Kitchen', imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''), type: 'Design & Work', description: '', quantity: 1, unit: 'Sq.ft', rate: 0, amount: 0 }]
+      : items.map(it => {
+          const q = isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity);
+          const r = isNaN(Number(it.rate)) ? 0 : Number(it.rate);
+          return {
+            ...it,
+            categoryName: it.categoryName?.trim() || category?.name || 'General',
+            imageUrl: it.imageUrl || resolveProductImage(it.categoryName, it.type, it.description),
+            type: it.type || '',
+            description: it.description || '',
+            quantity: q,
+            unit: it.unit || 'Sq.ft',
+            rate: r,
+            amount: Math.round(q * r * 100) / 100
+          };
+        });
 
     setSaving(true);
     try {
@@ -578,16 +582,18 @@ export default function CategoryProjectItemEntryPage() {
 
           {/* Line Items Grid */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+            <table className="w-full text-left border-collapse min-w-[1050px]">
               <thead>
                 <tr className="border-b border-[#E8E2D9] bg-[#F7F4EE] text-[11px] font-bold uppercase tracking-wider text-stone-600">
                   <th className="py-3 px-3 w-10 text-center">#</th>
-                  <th className="py-3 px-3 w-48">Category</th>
+                  <th className="py-3 px-3 w-40">Category</th>
                   <th className="py-3 px-2 w-28 text-center">Product Image</th>
-                  <th className="py-3 px-3 w-56">Type (Free Text Input)</th>
+                  <th className="py-3 px-3 w-48">Type (Free Text Input)</th>
                   <th className="py-3 px-3">Description (Free Text)</th>
-                  <th className="py-3 px-3 w-32">Measurement / Unit</th>
-                  <th className="py-3 px-3 w-36 text-right">Rate / Price (₹)</th>
+                  <th className="py-3 px-3 w-24 text-right">Quantity</th>
+                  <th className="py-3 px-3 w-28">Measurement / Unit</th>
+                  <th className="py-3 px-3 w-32 text-right">Amount (Price) (₹)</th>
+                  <th className="py-3 px-3 w-32 text-right">Total (₹)</th>
                   <th className="py-3 px-3 w-20 text-center">Actions</th>
                 </tr>
               </thead>
@@ -675,22 +681,46 @@ export default function CategoryProjectItemEntryPage() {
                       />
                     </td>
 
-                    {/* MEASUREMENT / UNIT — USER ENTERED FREE TEXT */}
+                    {/* QUANTITY */}
+                    <td className="py-3 px-3 align-top text-right">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="any"
+                        placeholder="1"
+                        value={item.quantity || ''}
+                        onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
+                        className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white text-right font-mono focus:ring-1 focus:ring-[#C88A6E]"
+                      />
+                    </td>
+
+                    {/* MEASUREMENT / UNIT */}
                     <td className="py-3 px-3 align-top">
                       <input
                         type="text"
-                        placeholder="Sq.ft / Running Feet / Nos"
+                        placeholder="Sq.ft / Nos"
                         value={item.unit}
                         onChange={(e) => updateItem(idx, 'unit', e.target.value)}
                         className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white focus:ring-1 focus:ring-[#C88A6E]"
                       />
                     </td>
 
-                    {/* Fixed Rate 2,500 */}
+                    {/* AMOUNT (PRICE) */}
                     <td className="py-3 px-3 align-top text-right">
-                      <div className="w-full text-xs rounded-lg border border-stone-200 p-2 bg-stone-100 text-right font-mono font-bold text-stone-800">
-                        ₹2,500
-                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="0.00"
+                        value={item.rate || ''}
+                        onChange={(e) => updateItem(idx, 'rate', e.target.value)}
+                        className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white text-right font-mono font-semibold text-stone-900 focus:ring-1 focus:ring-[#C88A6E]"
+                      />
+                    </td>
+
+                    {/* AUTO CALCULATED TOTAL */}
+                    <td className="py-3 px-3 align-top text-right font-mono font-bold text-stone-900">
+                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.rate) || 0))}
                     </td>
 
                     {/* ROW ACTIONS */}
@@ -734,43 +764,242 @@ export default function CategoryProjectItemEntryPage() {
           </div>
         </div>
 
-        {/* Notes & Terms Section */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-2">
-              <label className="block text-xs font-semibold text-stone-700">
-                Project Notes
-              </label>
-              <textarea
-                rows={4}
-                placeholder="Special instructions or customer preferences..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white"
-              />
+        {/* 2-Column Section: Left (Charges & Notes/Terms) / Right (Financial Summary) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Side: Additional Charges & Notes/Terms */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Additional Charges Section */}
+            <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
+                  Additional Charges (Optional)
+                </h3>
+                <button
+                  type="button"
+                  onClick={addCharge}
+                  className="text-xs font-bold text-[#C88A6E] hover:text-[#B37356] flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Charge</span>
+                </button>
+              </div>
+
+              {additionalCharges.length === 0 ? (
+                <p className="text-xs text-stone-400 italic py-2">
+                  No additional charges added (Freight, installation, packaging, etc.).
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {additionalCharges.map((ch, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Description (e.g. Freight & Transportation)"
+                        value={ch.description}
+                        onChange={(e) => updateCharge(idx, 'description', e.target.value)}
+                        className="flex-1 text-xs rounded border border-stone-300 p-1.5 bg-white"
+                      />
+                      <div className="w-32 relative">
+                        <span className="absolute left-2 top-1.5 text-stone-400 text-xs">₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.00"
+                          value={ch.amount || ''}
+                          onChange={(e) => updateCharge(idx, 'amount', e.target.value)}
+                          className="w-full text-xs rounded border border-stone-300 p-1.5 pl-6 bg-white text-right font-mono"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteCharge(idx)}
+                        className="p-1.5 text-stone-400 hover:text-rose-600 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-2">
-              <label className="block text-xs font-semibold text-stone-700">
-                Terms and Conditions
-              </label>
-              <textarea
-                rows={4}
-                value={termsAndConditions}
-                onChange={(e) => setTermsAndConditions(e.target.value)}
-                className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white font-mono"
-              />
+
+            {/* Notes & Terms Box */}
+            <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Project Notes
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Special instructions or customer preferences..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Terms and Conditions
+                </label>
+                <textarea
+                  rows={4}
+                  value={termsAndConditions}
+                  onChange={(e) => setTermsAndConditions(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-stone-300 p-2.5 bg-white font-mono"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-8 py-3.5 rounded-xl bg-[#C88A6E] hover:bg-[#B37356] text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Processing...' : 'Save Quotation & View Document'}</span>
-            </button>
+          {/* Right Side: LIVE FINANCIAL CALCULATION BREAKDOWN */}
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-xl border border-[#E8E2D9] p-5 shadow-xs space-y-4 sticky top-20">
+              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-[#C88A6E]" />
+                <span>Real-time Financial Summary</span>
+              </h3>
+
+              {/* Subtotal */}
+              <div className="flex justify-between items-center text-xs py-1 border-b border-stone-100">
+                <span className="text-stone-600 font-medium">Subtotal ({items.length} items)</span>
+                <span className="font-mono font-semibold text-stone-900">
+                  {formatCurrency(calcResult.subtotal)}
+                </span>
+              </div>
+
+              {/* Discount Configuration */}
+              <div className="py-2 border-b border-stone-100 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-stone-600 font-medium">Discount</span>
+                  <span className="font-mono font-semibold text-rose-600">
+                    - {formatCurrency(calcResult.discountAmount)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
+                    className="text-xs rounded border border-stone-300 p-1.5 bg-white"
+                  >
+                    <option value="NONE">No Discount</option>
+                    <option value="PERCENTAGE">Percentage (%)</option>
+                    <option value="FIXED">Fixed Amount (₹)</option>
+                  </select>
+                  {discountType !== 'NONE' && (
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder={discountType === 'PERCENTAGE' ? 'Discount %' : 'Discount ₹'}
+                      value={discountValue || ''}
+                      onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
+                      className="text-xs rounded border border-stone-300 p-1.5 bg-white font-mono text-right"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Taxable Amount */}
+              <div className="flex justify-between items-center text-xs py-1 border-b border-stone-100">
+                <span className="text-stone-600 font-semibold">Taxable Amount</span>
+                <span className="font-mono font-bold text-stone-900">
+                  {formatCurrency(calcResult.taxableAmount)}
+                </span>
+              </div>
+
+              {/* GST Tax Mode & Rate Selector */}
+              <div className="py-2 border-b border-stone-100 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-stone-600 font-medium">Tax Mode & GST</span>
+                  <span className="font-mono font-semibold text-stone-900">
+                    {formatCurrency(calcResult.cgstAmount + calcResult.sgstAmount + calcResult.igstAmount)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={taxMode}
+                    onChange={(e) => setTaxMode(e.target.value as TaxMode)}
+                    className="text-xs rounded border border-stone-300 p-1.5 bg-white"
+                  >
+                    <option value="CGST_SGST">CGST + SGST</option>
+                    <option value="IGST">IGST (Inter-state)</option>
+                    <option value="EXEMPT">Tax Exempt / None</option>
+                  </select>
+                  {taxMode !== 'EXEMPT' && (
+                    <select
+                      value={gstRate}
+                      onChange={(e) => setGstRate(Number(e.target.value))}
+                      className="text-xs rounded border border-stone-300 p-1.5 bg-white font-mono"
+                    >
+                      <option value={0}>0% GST</option>
+                      <option value={5}>5% GST</option>
+                      <option value={12}>12% GST</option>
+                      <option value={18}>18% GST (Standard)</option>
+                      <option value={28}>28% GST</option>
+                    </select>
+                  )}
+                </div>
+
+                {/* Tax Breakdowns */}
+                {taxMode === 'CGST_SGST' && (
+                  <div className="space-y-1 pt-1 text-[11px] text-stone-500 font-mono">
+                    <div className="flex justify-between">
+                      <span>CGST ({gstRate / 2}%):</span>
+                      <span>{formatCurrency(calcResult.cgstAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>SGST ({gstRate / 2}%):</span>
+                      <span>{formatCurrency(calcResult.sgstAmount)}</span>
+                    </div>
+                  </div>
+                )}
+                {taxMode === 'IGST' && (
+                  <div className="pt-1 text-[11px] text-stone-500 font-mono flex justify-between">
+                    <span>IGST ({gstRate}%):</span>
+                    <span>{formatCurrency(calcResult.igstAmount)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Other Charges */}
+              {calcResult.otherChargesAmount > 0 && (
+                <div className="flex justify-between items-center text-xs py-1 border-b border-stone-100">
+                  <span className="text-stone-600 font-medium">Other Charges</span>
+                  <span className="font-mono font-semibold text-stone-900">
+                    {formatCurrency(calcResult.otherChargesAmount)}
+                  </span>
+                </div>
+              )}
+
+              {/* Grand Total */}
+              <div className="pt-2">
+                <div className="bg-[#FAF7F2] p-4 rounded-xl border border-[#E8E2D9] space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+                      Grand Total
+                    </span>
+                    <span className="text-xl font-black text-[#171514] font-mono">
+                      {formatCurrency(calcResult.roundedGrandTotal)}
+                    </span>
+                  </div>
+                  {calcResult.grandTotal !== calcResult.roundedGrandTotal && (
+                    <div className="text-[11px] text-stone-400 text-right font-mono">
+                      Exact: {formatCurrency(calcResult.grandTotal)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-3.5 rounded-xl bg-[#C88A6E] hover:bg-[#B37356] text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? 'Processing...' : 'Save Quotation & View Document'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </form>
