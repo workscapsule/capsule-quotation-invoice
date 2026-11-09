@@ -24,13 +24,29 @@ import { formatCurrency, formatDate } from '@/lib/formatters';
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchDashboard = () => {
+    setLoading(true);
+    setError(null);
     fetch('/api/dashboard')
       .then(res => res.json())
-      .then(d => setData(d))
-      .catch(console.error)
+      .then(d => {
+        if (d && !d.error) {
+          setData(d);
+        } else {
+          setError(d?.error || 'Unable to connect to database');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setError(err.message || 'Unable to load dashboard data');
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchDashboard();
   }, []);
 
   if (loading) {
@@ -48,6 +64,23 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div className="space-y-8">
+        {error && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>Database Notice:</strong> Unable to load live metrics ({error}). If you use Supabase Free Tier, the project may be paused due to inactivity — please resume it from the Supabase Dashboard.
+              </span>
+            </div>
+            <button
+              onClick={() => fetchDashboard()}
+              className="px-3 py-1 bg-amber-200 hover:bg-amber-300 rounded font-semibold text-amber-900 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Welcome Banner */}
         <div className="bg-[#171514] text-white rounded-2xl p-6 sm:p-8 border border-[#2D2825] shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
           <div className="space-y-1.5 relative z-10">
@@ -202,7 +235,7 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="divide-y divide-[#E8E2D9] text-xs">
-              {data.recentQuotations?.length === 0 ? (
+              {!data?.recentQuotations || data.recentQuotations.length === 0 ? (
                 <div className="p-6 text-center text-stone-400">No quotations found.</div>
               ) : (
                 data.recentQuotations.map((q: any) => (
@@ -250,7 +283,7 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="divide-y divide-[#E8E2D9] text-xs">
-              {data.recentInvoices?.length === 0 ? (
+              {!data?.recentInvoices || data.recentInvoices.length === 0 ? (
                 <div className="p-6 text-center text-stone-400">No invoices created yet.</div>
               ) : (
                 data.recentInvoices.map((inv: any) => (
@@ -323,7 +356,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E2D9]">
-                {data.recentPayments?.length === 0 ? (
+                {!data?.recentPayments || data.recentPayments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-6 text-center text-stone-400">
                       No payments recorded yet.

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import DocumentViewer from '@/components/DocumentViewer';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function QuotationViewPage() {
   const params = useParams();
@@ -13,15 +13,25 @@ export default function QuotationViewPage() {
 
   const [quotation, setQuotation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchQuotation = () => {
+  const fetchQuotation = async () => {
     if (!id) return;
     setLoading(true);
-    fetch(`/api/quotations/${id}`)
-      .then(res => res.json())
-      .then(data => setQuotation(data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const res = await fetch(`/api/quotations/${id}`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to load quotation');
+      }
+      setQuotation(data);
+    } catch (err: any) {
+      console.error('Error loading quotation:', err);
+      setError(err.message || 'Unable to load quotation document');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -43,11 +53,47 @@ export default function QuotationViewPage() {
     }
   };
 
-  if (loading || !quotation) {
+  if (loading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center p-20 text-stone-500 text-sm">
           Loading quotation document...
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !quotation) {
+    return (
+      <AppShell>
+        <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl border border-stone-200 shadow-sm text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-rose-50 flex items-center justify-center text-rose-600">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-stone-900">Unable to Load Quotation</h2>
+          <p className="text-sm text-stone-600 max-w-md mx-auto">
+            {error || 'The requested quotation could not be found or the service is temporarily unavailable.'}
+          </p>
+          <div className="p-3 bg-amber-50 rounded-lg text-xs text-amber-800 text-left border border-amber-200">
+            <span className="font-semibold block mb-0.5">Database Notice:</span>
+            If you are seeing connection or database errors, your Supabase project may be paused due to inactivity. Check your Supabase Dashboard and click <strong>Restore project</strong> to reactivate it.
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => fetchQuotation()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-lg text-xs font-semibold hover:bg-stone-800 transition"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Try Again
+            </button>
+            <button
+              onClick={() => router.push('/quotations')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg text-xs font-semibold hover:bg-stone-200 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Quotations
+            </button>
+          </div>
         </div>
       </AppShell>
     );

@@ -2,8 +2,8 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Runs every 2 days at 00:00 UTC (well within the 7-day inactivity pause window)
-    - cron: '0 0 */2 * *'
+    # Runs daily at 04:00 UTC to maintain database activity and prevent inactivity pausing
+    - cron: '0 4 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 jobs:
@@ -12,18 +12,44 @@ jobs:
     steps:
       - name: Ping Supabase REST API
         run: |
+          set +e
           echo "Pinging Supabase at https://zksmzotvrdqphrtperbk.supabase.co..."
-          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
-            -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprc216b3R2cmRxcGhydHBlcmJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTM4MTUsImV4cCI6MjEwNTk4OTgxNX0.vDmppKXlDBGJyyez-MHfxIhCWvt_dipq9D2a5ydwyd0' }}" \
-            -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprc216b3R2cmRxcGhydHBlcmJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTM4MTUsImV4cCI6MjEwNTk4OTgxNX0.vDmppKXlDBGJyyez-MHfxIhCWvt_dipq9D2a5ydwyd0' }}" \
+          
+          ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprc216b3R2cmRxcGhydHBlcmJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTM4MTUsImV4cCI6MjEwNTk4OTgxNX0.vDmppKXlDBGJyyez-MHfxIhCWvt_dipq9D2a5ydwyd0' }}"
+          
+          HTTP_STATUS=$(curl -s -S --connect-timeout 10 --max-time 30 \
+            -o response.json -w "%{http_code}" \
+            -H "apikey: $ANON_KEY" \
+            -H "Authorization: Bearer $ANON_KEY" \
             "https://zksmzotvrdqphrtperbk.supabase.co/rest/v1/Category?select=id&limit=1")
-          
-          echo "Response HTTP Status: $HTTP_STATUS"
-          cat response.json
-          
+          CURL_EXIT_CODE=$?
+          set -e
+
+          echo "Curl exit code: $CURL_EXIT_CODE"
+          echo "HTTP response status: $HTTP_STATUS"
+          if [ -f response.json ]; then
+            cat response.json
+            echo ""
+          fi
+
+          if [ "$CURL_EXIT_CODE" -eq 6 ]; then
+            echo "::error::❌ Supabase project 'zksmzotvrdqphrtperbk' domain could not be resolved. The project is PAUSED on Supabase due to free-tier inactivity."
+            echo "### ⚠️ Supabase Project Paused" >> $GITHUB_STEP_SUMMARY
+            echo "The Supabase database project \`zksmzotvrdqphrtperbk\` is currently paused." >> $GITHUB_STEP_SUMMARY
+            echo "**How to fix:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Go to [Supabase Dashboard](https://supabase.com/dashboard/project/zksmzotvrdqphrtperbk)" >> $GITHUB_STEP_SUMMARY
+            echo "2. Click **Restore project** / **Unpause project**" >> $GITHUB_STEP_SUMMARY
+            echo "3. Re-run this workflow once unpaused" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
           if [ "$HTTP_STATUS" -eq 200 ]; then
             echo "✅ Supabase project is active and healthy!"
+            echo "### ✅ Supabase Project Active" >> $GITHUB_STEP_SUMMARY
+            echo "Keep-alive ping successful. Project is healthy and awake." >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Unexpected status code: $HTTP_STATUS"
+            echo "::warning::Unexpected HTTP status code: $HTTP_STATUS"
+            echo "### ⚠️ Supabase Keep-Alive Warning" >> $GITHUB_STEP_SUMMARY
+            echo "Received status code \`$HTTP_STATUS\`." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

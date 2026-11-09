@@ -29,28 +29,67 @@ export default function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
 
-  const fetchCustomer = () => {
+  const fetchCustomer = async () => {
     if (!id) return;
     setLoading(true);
-    fetch(`/api/customers/${id}`)
-      .then(res => res.json())
-      .then(data => setCustomer(data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const res = await fetch(`/api/customers/${id}`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to load customer profile');
+      }
+      setCustomer(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Unable to load customer profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchCustomer();
   }, [id]);
 
-  if (loading || !customer) {
+  if (loading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center p-20 text-stone-500 text-sm">
           Loading customer history...
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !customer) {
+    return (
+      <AppShell>
+        <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl border border-stone-200 shadow-sm text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-rose-50 flex items-center justify-center text-rose-600">
+            <ArrowLeft className="w-6 h-6 rotate-45" />
+          </div>
+          <h2 className="text-lg font-bold text-stone-900">Unable to Load Customer</h2>
+          <p className="text-sm text-stone-600 max-w-md mx-auto">{error || 'Customer not found'}</p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => fetchCustomer()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-lg text-xs font-semibold hover:bg-stone-800 transition"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => router.push('/customers')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg text-xs font-semibold hover:bg-stone-200 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Customers
+            </button>
+          </div>
         </div>
       </AppShell>
     );

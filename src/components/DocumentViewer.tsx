@@ -48,7 +48,7 @@ export default function DocumentViewer({
   const [upiQrUrl, setUpiQrUrl] = useState<string>('');
 
   const isQuotation = type === 'QUOTATION';
-  const company = data.companySettings || {
+  const company = data?.companySettings || {
     companyName: 'Capsule Company',
     tagline: 'YOUR SPACE MAKER',
     address: 'N.173, 1st & 2nd Flr, SLV Complex, Hebbal Kempapura, Amruthahalli, Outer Ring Road, Kariyanna Layout, Bengaluru (Urban), Karnataka – 560024',
@@ -68,6 +68,7 @@ export default function DocumentViewer({
 
   useEffect(() => {
     let active = true;
+    if (!data || data.error) return;
     const upiId = company.upiId || 'poornesh43-3@oksbi';
     const amount = isQuotation ? undefined : (data.balanceDue ?? data.roundedGrandTotal);
     const docNumber = isQuotation ? data.quotationNumber : data.invoiceNumber;
@@ -80,7 +81,7 @@ export default function DocumentViewer({
       if (active) setUpiQrUrl(url);
     });
     return () => { active = false; };
-  }, [company.upiId, company.accountName, company.companyName, data.balanceDue, data.roundedGrandTotal, isQuotation, data.quotationNumber, data.invoiceNumber]);
+  }, [company.upiId, company.accountName, company.companyName, data?.balanceDue, data?.roundedGrandTotal, isQuotation, data?.quotationNumber, data?.invoiceNumber]);
 
   const handlePrint = () => {
     window.print();
@@ -152,6 +153,15 @@ export default function DocumentViewer({
     PAID: 'bg-emerald-50 text-emerald-800 border-emerald-300',
     OVERDUE: 'bg-red-100 text-red-800 border-red-300',
   };
+
+  if (!data || data.error) {
+    return (
+      <div className="bg-white rounded-xl p-8 border border-stone-200 text-center max-w-lg mx-auto my-8 space-y-2">
+        <p className="text-stone-800 font-semibold text-base">Document Unavailable</p>
+        <p className="text-stone-500 text-xs">{data?.error || 'Unable to display the requested document.'}</p>
+      </div>
+    );
+  }
 
   const currentStatus = isQuotation ? data.status : data.paymentStatus;
 
@@ -523,7 +533,7 @@ export default function DocumentViewer({
                     AMOUNT IN WORDS:
                   </span>
                   <p className="text-[11px] text-stone-700 italic mt-0.5 font-serif leading-relaxed">
-                    {numberToWordsINR(data.roundedGrandTotal)}
+                    {numberToWordsINR(data.roundedGrandTotal || 0)}
                   </p>
                 </div>
               </div>
@@ -533,7 +543,7 @@ export default function DocumentViewer({
                 <div className="flex justify-between items-baseline py-0.5">
                   <span className="text-stone-600 font-bold uppercase tracking-wider text-[11px]">SUBTOTAL</span>
                   <span className="font-mono font-semibold text-stone-900">
-                    {formatCurrency(data.subtotal)}
+                    {formatCurrency(data.subtotal || 0)}
                   </span>
                 </div>
 
@@ -543,7 +553,7 @@ export default function DocumentViewer({
                       Discount {data.discountType === 'PERCENTAGE' ? `(${data.discountValue}%)` : ''}
                     </span>
                     <span className="font-mono font-semibold">
-                      - {formatCurrency(data.discountAmount)}
+                      - {formatCurrency(data.discountAmount || 0)}
                     </span>
                   </div>
                 )}
@@ -552,18 +562,18 @@ export default function DocumentViewer({
                 {data.taxMode === 'CGST_SGST' ? (
                   <>
                     <div className="flex justify-between items-baseline py-0.5 text-stone-500 font-mono text-[11px]">
-                      <span>CGST ({data.gstRate / 2}%)</span>
-                      <span>{formatCurrency(data.cgstAmount)}</span>
+                      <span>CGST ({((data.gstRate ?? 18) / 2)}%)</span>
+                      <span>{formatCurrency(data.cgstAmount || 0)}</span>
                     </div>
                     <div className="flex justify-between items-baseline py-0.5 text-stone-500 font-mono text-[11px]">
-                      <span>SGST ({data.gstRate / 2}%)</span>
-                      <span>{formatCurrency(data.sgstAmount)}</span>
+                      <span>SGST ({((data.gstRate ?? 18) / 2)}%)</span>
+                      <span>{formatCurrency(data.sgstAmount || 0)}</span>
                     </div>
                   </>
                 ) : data.taxMode === 'IGST' ? (
                   <div className="flex justify-between items-baseline py-0.5 text-stone-500 font-mono text-[11px]">
-                    <span>IGST ({data.gstRate}%)</span>
-                    <span>{formatCurrency(data.igstAmount)}</span>
+                    <span>IGST ({data.gstRate ?? 18}%)</span>
+                    <span>{formatCurrency(data.igstAmount || 0)}</span>
                   </div>
                 ) : null}
 
