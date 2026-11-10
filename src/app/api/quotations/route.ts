@@ -216,7 +216,7 @@ export async function POST(req: Request) {
     }
 
     const sanitizedItems = (!items || items.length === 0)
-      ? [{ categoryName: 'General', type: 'Design & Work', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      ? [{ categoryName: 'General', type: 'Design & Work', description: '', sqFt: 0, quantity: 0, unit: 'Sq. Ft.', rate: 0, amount: 0 }]
       : items;
 
     // Verify Customer and Project
@@ -227,12 +227,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Selected Customer or Project could not be resolved' }, { status: 404 });
     }
 
-    // Run Calculation Engine
+    // Run Calculation Engine (Discounts removed completely)
     const calculated = calculateFinancials({
       items: sanitizedItems,
       additionalCharges,
-      discountType,
-      discountValue: Number(discountValue) || 0,
       taxMode,
       gstRate: Number(gstRate) || 18
     });
@@ -265,11 +263,11 @@ export async function POST(req: Request) {
         customerAddress: body.customerAddress?.trim() || customer.address || null,
         customerGstin: body.customerGstin?.trim() || customer.gstin || null,
         taxMode,
-        discountType,
-        discountValue: Number(discountValue) || 0,
+        discountType: 'NONE',
+        discountValue: 0,
         gstRate: Number(gstRate) || 18,
         subtotal: calculated.subtotal,
-        discountAmount: calculated.discountAmount,
+        discountAmount: 0,
         taxableAmount: calculated.taxableAmount,
         cgstAmount: calculated.cgstAmount,
         sgstAmount: calculated.sgstAmount,
@@ -289,8 +287,8 @@ export async function POST(req: Request) {
             imageUrl: it.imageUrl || null,
             type: (it.type || '').trim(),
             description: (it.description || '').trim(),
-            quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
-            unit: (it.unit || 'Nos').trim(),
+            quantity: isNaN(Number(it.sqFt ?? it.quantity)) ? 0 : Number(it.sqFt ?? it.quantity),
+            unit: 'Sq. Ft.',
             rate: isNaN(Number(it.rate)) ? 0 : Number(it.rate),
             amount: isNaN(Number(it.amount)) ? 0 : Number(it.amount),
             sortOrder: idx + 1

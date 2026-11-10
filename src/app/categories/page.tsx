@@ -70,8 +70,8 @@ export default function CategoriesPage() {
         <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] text-xs text-stone-600 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-[#C88A6E] shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold text-stone-900">Custom Rates & Flexible Units Rule: </span>
-            Categories define the high-level interior discipline only. Type, description, quantity, unit, and price rate are entered completely manually per project and client requirements.
+            <span className="font-bold text-stone-900">Custom Scope & Square Feet Rule: </span>
+            Categories define the high-level interior discipline only. Type, description, square feet (Sq. Ft.), and total pricing are entered per project and client requirements.
           </div>
         </div>
 

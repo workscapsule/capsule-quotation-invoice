@@ -121,8 +121,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       invoiceDate,
       dueDate,
       taxMode = existing.taxMode,
-      discountType = existing.discountType,
-      discountValue = existing.discountValue,
       gstRate = existing.gstRate,
       items = [],
       additionalCharges = [],
@@ -133,14 +131,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const totalPaid = existing.payments.reduce((sum, p) => sum + p.amountPaid, 0);
 
     const sanitizedItems = (!items || items.length === 0)
-      ? [{ categoryName: 'General', type: 'Design & Work', description: '', quantity: 1, unit: 'Nos', rate: 0, amount: 0 }]
+      ? [{ categoryName: 'General', type: 'Design & Work', description: '', sqFt: 0, quantity: 0, unit: 'Sq. Ft.', rate: 0, amount: 0 }]
       : items;
 
     const calculated = calculateFinancials({
       items: sanitizedItems,
       additionalCharges,
-      discountType,
-      discountValue: Number(discountValue) || 0,
       taxMode,
       gstRate: Number(gstRate) || 18,
       totalPaid,
@@ -164,11 +160,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           invoiceDate: parseSafeDate(invoiceDate, existing.invoiceDate),
           dueDate: parseSafeDate(dueDate, existing.dueDate),
           taxMode,
-          discountType,
-          discountValue: Number(discountValue) || 0,
+          discountType: 'NONE',
+          discountValue: 0,
           gstRate: Number(gstRate) || 18,
           subtotal: calculated.subtotal,
-          discountAmount: calculated.discountAmount,
+          discountAmount: 0,
           taxableAmount: calculated.taxableAmount,
           cgstAmount: calculated.cgstAmount,
           sgstAmount: calculated.sgstAmount,
@@ -189,8 +185,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
               imageUrl: it.imageUrl || null,
               type: (it.type || '').trim(),
               description: (it.description || '').trim(),
-              quantity: isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity),
-              unit: (it.unit || 'Nos').trim(),
+              quantity: isNaN(Number(it.sqFt ?? it.quantity)) ? 0 : Number(it.sqFt ?? it.quantity),
+              unit: 'Sq. Ft.',
               rate: isNaN(Number(it.rate)) ? 0 : Number(it.rate),
               amount: isNaN(Number(it.amount)) ? 0 : Number(it.amount),
               sortOrder: idx + 1

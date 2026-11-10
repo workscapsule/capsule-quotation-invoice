@@ -5,10 +5,11 @@ export interface LineItemInput {
   imageUrl?: string | null; // Product image path or URL
   type: string;         // FREE-TEXT user input
   description: string;  // FREE-TEXT user input
-  quantity: number;     // User entered
-  unit: string;         // User selected/entered
-  rate: number;         // STRICTLY USER ENTERED, NO PREDEFINED PRICES!
-  amount?: number;      // Auto calculated: quantity * rate
+  sqFt?: number;        // Square Feet (Sq. Ft.)
+  quantity?: number;    // Stored for database schema compatibility, represents Sq. Ft.
+  unit?: string;        // Always 'Sq. Ft.'
+  rate?: number;        // Internal price rate, not displayed
+  amount: number;       // Direct Total Amount for the item
   sortOrder?: number;
 }
 
@@ -50,38 +51,36 @@ export interface CalculationResult {
 
 /**
  * Pure calculation engine for Quotations and Invoices.
- * Adheres strictly to the business rule:
- * Rate is ALWAYS user entered. Amount = Quantity * Rate.
+ * Pricing is fixed directly by the company via Total Amount per item.
+ * Square Feet (Sq. Ft.) is displayed; Rate per Sq. Ft. is not displayed.
+ * Discounts are removed.
  */
 export function calculateFinancials(input: CalculationInput): CalculationResult {
   const items = (input.items || []).map((item, idx) => {
-    const qty = Number(item.quantity) || 0;
-    const rate = Number(item.rate) || 0;
-    const amount = Math.round(qty * rate * 100) / 100;
+    const sqFt = Number(item.sqFt !== undefined ? item.sqFt : item.quantity) || 0;
+    const amount = item.amount !== undefined && !isNaN(Number(item.amount))
+      ? Math.round(Number(item.amount) * 100) / 100
+      : Math.round(sqFt * (Number(item.rate) || 0) * 100) / 100;
+    const rate = sqFt > 0 ? Math.round((amount / sqFt) * 100) / 100 : amount;
+
     return {
       ...item,
-      quantity: qty,
-      rate: rate,
-      amount: amount,
+      sqFt,
+      quantity: sqFt,
+      unit: 'Sq. Ft.',
+      rate,
+      amount,
       sortOrder: item.sortOrder ?? idx + 1
     };
   });
 
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
 
-  // Discount calculation
-  const discountType = input.discountType || 'NONE';
-  const discountVal = Number(input.discountValue) || 0;
-  let discountAmount = 0;
+  // Discount removed completely - always 0
+  const discountAmount = 0;
 
-  if (discountType === 'PERCENTAGE') {
-    discountAmount = Math.round(((subtotal * discountVal) / 100) * 100) / 100;
-  } else if (discountType === 'FIXED') {
-    discountAmount = Math.min(subtotal, Math.max(0, discountVal));
-  }
-
-  // Taxable amount
-  const taxableAmount = Math.max(0, Math.round((subtotal - discountAmount) * 100) / 100);
+  // Taxable amount equals subtotal (no discounts)
+  const taxableAmount = Math.max(0, Math.round(subtotal * 100) / 100);
 
   // Tax calculation
   const taxMode = input.taxMode || 'CGST_SGST';

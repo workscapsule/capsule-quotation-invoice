@@ -424,23 +424,22 @@ export default function DocumentViewer({
             </div>
           </div>
 
-          {/* WORK ITEMS TABLE (MINIMALIST HORIZONTAL RULE AESTHETIC WITH PRODUCT IMAGE & UNIT) */}
+          {/* WORK ITEMS TABLE (MINIMALIST HORIZONTAL RULE AESTHETIC WITH PRODUCT IMAGE & SQ. FT.) */}
           <div className="overflow-x-auto pt-2">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-t-2 border-b border-stone-800 text-[10.5px] uppercase tracking-wider font-bold text-stone-900">
                   <th className="py-2.5 px-2 w-24 text-center">PRODUCT IMAGE</th>
                   <th className="py-2.5 px-2">TYPE & WORK SPECIFICATIONS</th>
-                  <th className="py-2.5 px-2 text-center w-16">QTY</th>
-                  <th className="py-2.5 px-2 text-center w-16">UNIT</th>
-                  <th className="py-2.5 px-2 text-right w-24">AMOUNT (PRICE)</th>
-                  <th className="py-2.5 px-2 text-right w-28">TOTAL</th>
+                  <th className="py-2.5 px-3 text-right w-28">SQ. FT.</th>
+                  <th className="py-2.5 px-3 text-right w-32">TOTAL AMOUNT</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {data.items?.map((item: any, idx: number) => {
                   const productImg = item.imageUrl || resolveProductImage(item.categoryName, item.type, item.description);
                   const title = `${item.categoryName || 'Item'}${item.type ? ` — ${item.type}` : ''}`;
+                  const sqFtVal = item.sqFt !== undefined ? item.sqFt : item.quantity;
                   return (
                   <tr key={idx} className="align-middle">
                     <td className="py-2.5 px-2 text-center align-middle w-24">
@@ -467,16 +466,10 @@ export default function DocumentViewer({
                         </div>
                       )}
                     </td>
-                    <td className="py-2.5 px-2 text-center font-medium text-stone-800 align-middle">
-                      {item.quantity}
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-stone-800 align-middle">
+                      {sqFtVal ? `${sqFtVal} Sq. Ft.` : '—'}
                     </td>
-                    <td className="py-2.5 px-2 text-center text-stone-600 font-medium text-[11px] align-middle">
-                      {item.unit || 'Sq.ft'}
-                    </td>
-                    <td className="py-2.5 px-2 text-right font-mono text-stone-700 align-middle">
-                      {formatCurrency(item.rate)}
-                    </td>
-                    <td className="py-2.5 px-2 text-right font-mono font-bold text-stone-950 align-middle">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-stone-950 align-middle">
                       {formatCurrency(item.amount)}
                     </td>
                   </tr>
@@ -546,17 +539,6 @@ export default function DocumentViewer({
                     {formatCurrency(data.subtotal || 0)}
                   </span>
                 </div>
-
-                {data.discountAmount > 0 && (
-                  <div className="flex justify-between items-baseline py-0.5 text-rose-600">
-                    <span className="text-[11px]">
-                      Discount {data.discountType === 'PERCENTAGE' ? `(${data.discountValue}%)` : ''}
-                    </span>
-                    <span className="font-mono font-semibold">
-                      - {formatCurrency(data.discountAmount || 0)}
-                    </span>
-                  </div>
-                )}
 
                 {/* Tax Breakdown */}
                 {data.taxMode === 'CGST_SGST' ? (
@@ -697,8 +679,8 @@ export default function DocumentViewer({
                 This will automatically generate a brand-new official <strong>Tax Invoice</strong>:
               </p>
               <ul className="list-disc pl-4 space-y-1 text-stone-600 text-[11px]">
-                <li>Transfers all {data.items?.length || 0} line items and manual rates</li>
-                <li>Preserves customer details, project site, taxes, and discounts</li>
+                <li>Transfers all {data.items?.length || 0} line items and pricing</li>
+                <li>Preserves customer details, project site, and tax settings</li>
                 <li>Assigns the next sequential invoice number</li>
                 <li>Marks this quotation as <strong>CONVERTED</strong></li>
               </ul>

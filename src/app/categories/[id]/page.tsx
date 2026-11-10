@@ -73,13 +73,11 @@ export default function CategoryProjectItemEntryPage() {
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
 
-  // 2. WORK ITEMS (Multiple items, free-text Type & Description, manual Rate, flexible Unit)
+  // 2. WORK ITEMS (Square Feet & Total Amount, free-text Type & Description)
   const [items, setItems] = useState<LineItemInput[]>([]);
   const [imageModalItemIndex, setImageModalItemIndex] = useState<number | null>(null);
 
   // 3. FINANCIAL TOTALS
-  const [discountType, setDiscountType] = useState<DiscountType>('NONE');
-  const [discountValue, setDiscountValue] = useState<number>(0);
   const [taxMode, setTaxMode] = useState<TaxMode>('CGST_SGST');
   const [gstRate, setGstRate] = useState<number>(18);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalChargeInput[]>([]);
@@ -106,8 +104,9 @@ export default function CategoryProjectItemEntryPage() {
             imageUrl: resolveProductImage(initialCategoryName, '', ''),
             type: '',
             description: '',
-            quantity: 1,
-            unit: 'Sq.ft',
+            sqFt: 0,
+            quantity: 0,
+            unit: 'Sq. Ft.',
             rate: 0,
             amount: 0
           }
@@ -129,22 +128,24 @@ export default function CategoryProjectItemEntryPage() {
   const calcResult = calculateFinancials({
     items,
     additionalCharges,
-    discountType,
-    discountValue,
     taxMode,
     gstRate
   });
 
   // Line item handlers
-  const updateItem = (index: number, field: keyof LineItemInput, value: any) => {
+  const updateItem = (index: number, field: keyof LineItemInput | 'sqFt', value: any) => {
     setItems(prev => {
       const next = [...prev];
-      const item = { ...next[index], [field]: value };
+      const item = { ...next[index] };
 
-      if (field === 'quantity' || field === 'rate') {
-        const q = field === 'quantity' ? Number(value) || 0 : Number(item.quantity) || 0;
-        const r = field === 'rate' ? Number(value) || 0 : Number(item.rate) || 0;
-        item.amount = Math.round(q * r * 100) / 100;
+      if (field === 'sqFt' || field === 'quantity') {
+        const sq = Number(value) || 0;
+        item.sqFt = sq;
+        item.quantity = sq;
+      } else if (field === 'amount') {
+        item.amount = Number(value) || 0;
+      } else {
+        (item as any)[field] = value;
       }
 
       next[index] = item;
@@ -161,8 +162,9 @@ export default function CategoryProjectItemEntryPage() {
         imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''),
         type: '',
         description: '',
-        quantity: 1,
-        unit: 'Sq.ft',
+        sqFt: 0,
+        quantity: 0,
+        unit: 'Sq. Ft.',
         rate: 0,
         amount: 0
       }
@@ -213,20 +215,22 @@ export default function CategoryProjectItemEntryPage() {
     const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
     const cleanedItems = items.length === 0
-      ? [{ categoryName: category?.name || 'Modular Kitchen', imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''), type: 'Design & Work', description: '', quantity: 1, unit: 'Sq.ft', rate: 0, amount: 0 }]
+      ? [{ categoryName: category?.name || 'Modular Kitchen', imageUrl: resolveProductImage(category?.name || 'Modular Kitchen', '', ''), type: 'Design & Work', description: '', sqFt: 0, quantity: 0, unit: 'Sq. Ft.', rate: 0, amount: 0 }]
       : items.map(it => {
-          const q = isNaN(Number(it.quantity)) || Number(it.quantity) <= 0 ? 1 : Number(it.quantity);
-          const r = isNaN(Number(it.rate)) ? 0 : Number(it.rate);
+          const sq = Number(it.sqFt !== undefined ? it.sqFt : it.quantity) || 0;
+          const amt = Number(it.amount) || 0;
+          const r = sq > 0 ? Math.round((amt / sq) * 100) / 100 : amt;
           return {
             ...it,
             categoryName: it.categoryName?.trim() || category?.name || 'General',
             imageUrl: it.imageUrl || resolveProductImage(it.categoryName, it.type, it.description),
             type: it.type || '',
             description: it.description || '',
-            quantity: q,
-            unit: it.unit || 'Sq.ft',
+            sqFt: sq,
+            quantity: sq,
+            unit: 'Sq. Ft.',
             rate: r,
-            amount: Math.round(q * r * 100) / 100
+            amount: Math.round(amt * 100) / 100
           };
         });
 
@@ -248,8 +252,8 @@ export default function CategoryProjectItemEntryPage() {
         validUntil,
         status: 'DRAFT',
         taxMode,
-        discountType,
-        discountValue: Number(discountValue) || 0,
+        discountType: 'NONE',
+        discountValue: 0,
         gstRate: Number(gstRate) || 18,
         items: cleanedItems,
         additionalCharges: (additionalCharges || []).filter(c => c && (c.description || c.amount)),
@@ -582,7 +586,7 @@ export default function CategoryProjectItemEntryPage() {
 
           {/* Line Items Grid */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1050px]">
+            <table className="w-full text-left border-collapse min-w-[950px]">
               <thead>
                 <tr className="border-b border-[#E8E2D9] bg-[#F7F4EE] text-[11px] font-bold uppercase tracking-wider text-stone-600">
                   <th className="py-3 px-3 w-10 text-center">#</th>
@@ -590,10 +594,8 @@ export default function CategoryProjectItemEntryPage() {
                   <th className="py-3 px-2 w-28 text-center">Product Image</th>
                   <th className="py-3 px-3 w-48">Type (Free Text Input)</th>
                   <th className="py-3 px-3">Description (Free Text)</th>
-                  <th className="py-3 px-3 w-24 text-right">Quantity</th>
-                  <th className="py-3 px-3 w-28">Measurement / Unit</th>
-                  <th className="py-3 px-3 w-32 text-right">Amount (Price) (₹)</th>
-                  <th className="py-3 px-3 w-32 text-right">Total (₹)</th>
+                  <th className="py-3 px-3 w-32 text-right">Square Feet (Sq. Ft.)</th>
+                  <th className="py-3 px-3 w-36 text-right">Total Amount (₹)</th>
                   <th className="py-3 px-3 w-20 text-center">Actions</th>
                 </tr>
               </thead>
@@ -681,46 +683,36 @@ export default function CategoryProjectItemEntryPage() {
                       />
                     </td>
 
-                    {/* QUANTITY */}
+                    {/* Square Feet (Sq. Ft.) */}
                     <td className="py-3 px-3 align-top text-right">
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="any"
-                        placeholder="1"
-                        value={item.quantity || ''}
-                        onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                        className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white text-right font-mono focus:ring-1 focus:ring-[#C88A6E]"
-                      />
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.00"
+                          value={item.sqFt !== undefined ? (item.sqFt || '') : (item.quantity || '')}
+                          onChange={(e) => updateItem(idx, 'sqFt', e.target.value)}
+                          className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white text-right font-mono focus:ring-1 focus:ring-[#C88A6E]"
+                        />
+                        <span className="text-[10px] text-stone-400 block text-right mt-0.5 font-medium">Sq. Ft.</span>
+                      </div>
                     </td>
 
-                    {/* MEASUREMENT / UNIT */}
-                    <td className="py-3 px-3 align-top">
-                      <input
-                        type="text"
-                        placeholder="Sq.ft / Nos"
-                        value={item.unit}
-                        onChange={(e) => updateItem(idx, 'unit', e.target.value)}
-                        className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white focus:ring-1 focus:ring-[#C88A6E]"
-                      />
-                    </td>
-
-                    {/* AMOUNT (PRICE) */}
+                    {/* Total Amount (₹) */}
                     <td className="py-3 px-3 align-top text-right">
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        placeholder="0.00"
-                        value={item.rate || ''}
-                        onChange={(e) => updateItem(idx, 'rate', e.target.value)}
-                        className="w-full text-xs rounded-lg border border-stone-300 p-2 bg-white text-right font-mono font-semibold text-stone-900 focus:ring-1 focus:ring-[#C88A6E]"
-                      />
-                    </td>
-
-                    {/* AUTO CALCULATED TOTAL */}
-                    <td className="py-3 px-3 align-top text-right font-mono font-bold text-stone-900">
-                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.rate) || 0))}
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-2 text-stone-400 text-xs font-mono">₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.00"
+                          value={item.amount || ''}
+                          onChange={(e) => updateItem(idx, 'amount', e.target.value)}
+                          className="w-full text-xs rounded-lg border border-stone-300 p-2 pl-7 bg-white text-right font-mono font-bold text-stone-900 focus:ring-1 focus:ring-[#C88A6E]"
+                        />
+                      </div>
                     </td>
 
                     {/* ROW ACTIONS */}
@@ -866,37 +858,6 @@ export default function CategoryProjectItemEntryPage() {
                 <span className="font-mono font-semibold text-stone-900">
                   {formatCurrency(calcResult.subtotal)}
                 </span>
-              </div>
-
-              {/* Discount Configuration */}
-              <div className="py-2 border-b border-stone-100 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-stone-600 font-medium">Discount</span>
-                  <span className="font-mono font-semibold text-rose-600">
-                    - {formatCurrency(calcResult.discountAmount)}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                    className="text-xs rounded border border-stone-300 p-1.5 bg-white"
-                  >
-                    <option value="NONE">No Discount</option>
-                    <option value="PERCENTAGE">Percentage (%)</option>
-                    <option value="FIXED">Fixed Amount (₹)</option>
-                  </select>
-                  {discountType !== 'NONE' && (
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder={discountType === 'PERCENTAGE' ? 'Discount %' : 'Discount ₹'}
-                      value={discountValue || ''}
-                      onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
-                      className="text-xs rounded border border-stone-300 p-1.5 bg-white font-mono text-right"
-                    />
-                  )}
-                </div>
               </div>
 
               {/* Taxable Amount */}

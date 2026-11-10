@@ -249,22 +249,19 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   const tableRows = items.map((item: any) => {
     const scopeHeader = `${item.categoryName ? `${item.categoryName}` : ''}${item.type ? ` — ${item.type}` : ''}`;
     const desc = item.description ? `\n${item.description}` : '';
-    const qty = item.quantity ?? 1;
-    const rate = item.rate ?? 0;
-    const amount = item.amount ?? (qty * rate);
+    const sqFt = item.sqFt !== undefined ? item.sqFt : item.quantity;
+    const amount = item.amount ?? 0;
     return [
       '', // Column 0: Product Image (drawn in didDrawCell)
       scopeHeader + desc,
-      `${qty}`,
-      item.unit || 'Sq.ft',
-      formatPdfCurrency(rate),
+      sqFt ? `${sqFt} Sq. Ft.` : '—',
       formatPdfCurrency(amount)
     ];
   });
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'QTY', 'UNIT', 'RATE', 'TOTAL']],
+    head: [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'SQ. FT.', 'TOTAL AMOUNT']],
     body: tableRows,
     theme: 'plain',
     headStyles: {
@@ -283,10 +280,8 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
     columnStyles: {
       0: { cellWidth: 22, halign: 'center' }, // Product Image column
       1: { cellWidth: 'auto' },               // Type & work specifications
-      2: { cellWidth: 15, halign: 'center' }, // QTY
-      3: { cellWidth: 15, halign: 'center' }, // UNIT
-      4: { cellWidth: 25, halign: 'right' },  // RATE
-      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL
+      2: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }, // SQ. FT.
+      3: { cellWidth: 34, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL AMOUNT
     },
     margin: { left: margin, right: margin },
     didDrawCell: (hookData) => {
@@ -369,10 +364,6 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   const grandTotal = data.roundedGrandTotal ?? data.grandTotal ?? 0;
 
   drawTotalLine('SUBTOTAL', formatPdfCurrency(subtotal), true);
-
-  if (discountAmount > 0) {
-    drawTotalLine(`Discount (${data.discountValue ?? 0}%):`, `- ${formatPdfCurrency(discountAmount)}`);
-  }
 
   if (cgstAmount > 0 || sgstAmount > 0) {
     const half = (data.gstRate || 18) / 2;
