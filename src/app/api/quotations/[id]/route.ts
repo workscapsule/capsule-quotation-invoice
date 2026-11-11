@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { calculateFinancials } from '@/lib/calculations';
+import { getNextQuotationNumber } from '@/lib/numbering';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -238,16 +239,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
       const settings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
       const prefix = settings?.quotationPrefix || 'CAP-QTN-';
-      const count = await prisma.quotation.count();
-      let nextNum = count + 1;
-      let quotationNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-
-      let exists = await prisma.quotation.findUnique({ where: { quotationNumber } });
-      while (exists) {
-        nextNum++;
-        quotationNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-        exists = await prisma.quotation.findUnique({ where: { quotationNumber } });
-      }
+      const quotationNumber = await getNextQuotationNumber(prefix);
 
       const duplicated = await prisma.quotation.create({
         data: {

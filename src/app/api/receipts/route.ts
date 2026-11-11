@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { numberToWordsINR } from '@/lib/numberToWords';
+import { getNextReceiptNumber } from '@/lib/numbering';
 
 export async function GET(req: Request) {
   try {
@@ -115,21 +116,7 @@ export async function POST(req: Request) {
     if (!receiptNumber) {
       const companySettings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
       const prefix = companySettings?.receiptPrefix || 'CAP-REC-';
-
-      // Count existing receipts to generate sequential number
-      const count = await prisma.paymentReceipt.count();
-      let nextSeq = count + 1;
-      let unique = false;
-      while (!unique) {
-        const candidate = `${prefix}${String(nextSeq).padStart(4, '0')}`;
-        const existing = await prisma.paymentReceipt.findUnique({ where: { receiptNumber: candidate } });
-        if (!existing) {
-          receiptNumber = candidate;
-          unique = true;
-        } else {
-          nextSeq++;
-        }
-      }
+      receiptNumber = await getNextReceiptNumber(prefix);
     } else {
       // Validate provided receipt number uniqueness
       const existing = await prisma.paymentReceipt.findUnique({ where: { receiptNumber } });

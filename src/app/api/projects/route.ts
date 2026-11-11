@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getNextCustomerId, getNextProjectId } from '@/lib/numbering';
 
 export async function GET(req: Request) {
   try {
@@ -91,8 +92,7 @@ export async function POST(req: Request) {
         where: { name: { equals: cName } }
       });
       if (!customer) {
-        const countC = await prisma.customer.count();
-        const cId = `CUST-${String(countC + 1).padStart(3, '0')}`;
+        const cId = await getNextCustomerId();
         customer = await prisma.customer.create({
           data: {
             customerId: cId,
@@ -109,17 +109,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Customer Name and Project Name are required' }, { status: 400 });
     }
 
-    // Auto-generate projectId: PRJ-001, PRJ-002, etc.
-    const count = await prisma.project.count();
-    let nextNum = count + 1;
-    let projectId = `PRJ-${String(nextNum).padStart(3, '0')}`;
-
-    let exists = await prisma.project.findUnique({ where: { projectId } });
-    while (exists) {
-      nextNum++;
-      projectId = `PRJ-${String(nextNum).padStart(3, '0')}`;
-      exists = await prisma.project.findUnique({ where: { projectId } });
-    }
+    // Auto-generate projectId: PRJ-001, PRJ-002, etc. safely using max sequence
+    const projectId = await getNextProjectId();
 
     const project = await prisma.project.create({
       data: {

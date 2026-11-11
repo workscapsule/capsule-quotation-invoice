@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getNextCustomerId } from '@/lib/numbering';
 
 export async function GET(req: Request) {
   try {
@@ -85,18 +86,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Customer Name and Phone are required' }, { status: 400 });
     }
 
-    // Auto-generate customerId sequentially: CUST-001, CUST-002, etc.
-    const count = await prisma.customer.count();
-    let nextNum = count + 1;
-    let customerId = `CUST-${String(nextNum).padStart(3, '0')}`;
-
-    // Ensure uniqueness
-    let exists = await prisma.customer.findUnique({ where: { customerId } });
-    while (exists) {
-      nextNum++;
-      customerId = `CUST-${String(nextNum).padStart(3, '0')}`;
-      exists = await prisma.customer.findUnique({ where: { customerId } });
-    }
+    // Auto-generate customerId sequentially: CUST-001, CUST-002, etc. safely using max sequence
+    const customerId = await getNextCustomerId();
 
     const customer = await prisma.customer.create({
       data: {

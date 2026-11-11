@@ -84,8 +84,8 @@ export async function GET() {
         totalAmountReceived,
         totalOutstandingAmount
       },
-      recentQuotations: quotations.slice(0, 5),
-      recentInvoices: invoices.slice(0, 5),
+      recentQuotations: quotations.slice(0, 10),
+      recentInvoices: invoices.slice(0, 10),
       recentPayments: payments
     });
   } catch (error) {

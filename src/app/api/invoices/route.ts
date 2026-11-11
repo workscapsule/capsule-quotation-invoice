@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { calculateFinancials } from '@/lib/calculations';
 import { DEFAULT_INVOICE_TERMS } from '@/lib/terms';
+import { getNextInvoiceNumber, getNextCustomerId, getNextProjectId } from '@/lib/numbering';
 
 export async function GET(req: Request) {
   try {
@@ -99,13 +100,7 @@ export async function POST(req: Request) {
           });
 
       if (!customer) {
-        const count = await prisma.customer.count();
-        let nextNum = count + 1;
-        let cId = `CUST-${String(nextNum).padStart(3, '0')}`;
-        while (await prisma.customer.findUnique({ where: { customerId: cId } })) {
-          nextNum++;
-          cId = `CUST-${String(nextNum).padStart(3, '0')}`;
-        }
+        const cId = await getNextCustomerId();
 
         customer = await prisma.customer.create({
           data: {
@@ -142,8 +137,7 @@ export async function POST(req: Request) {
 
     if (!resolvedCustomerId) {
       // Default customer fallback
-      const count = await prisma.customer.count();
-      const cId = `CUST-${String(count + 1).padStart(3, '0')}`;
+      const cId = await getNextCustomerId();
       const defaultCustomer = await prisma.customer.create({
         data: {
           customerId: cId,
@@ -171,13 +165,7 @@ export async function POST(req: Request) {
           });
 
       if (!project) {
-        const countP = await prisma.project.count();
-        let nextNumP = countP + 1;
-        let pId = `PRJ-${String(nextNumP).padStart(3, '0')}`;
-        while (await prisma.project.findUnique({ where: { projectId: pId } })) {
-          nextNumP++;
-          pId = `PRJ-${String(nextNumP).padStart(3, '0')}`;
-        }
+        const pId = await getNextProjectId();
 
         project = await prisma.project.create({
           data: {
@@ -201,13 +189,7 @@ export async function POST(req: Request) {
     if (!resolvedProjectId) {
       const customerForProj = await prisma.customer.findUnique({ where: { id: resolvedCustomerId } });
       const defaultPName = `${customerForProj?.name || 'Client'} Project`;
-      const countP = await prisma.project.count();
-      let nextNumP = countP + 1;
-      let pId = `PRJ-${String(nextNumP).padStart(3, '0')}`;
-      while (await prisma.project.findUnique({ where: { projectId: pId } })) {
-        nextNumP++;
-        pId = `PRJ-${String(nextNumP).padStart(3, '0')}`;
-      }
+      const pId = await getNextProjectId();
       const newProject = await prisma.project.create({
         data: {
           projectId: pId,
@@ -246,17 +228,7 @@ export async function POST(req: Request) {
 
     const companySettings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
     const prefix = companySettings?.invoicePrefix || 'CAP-INV-';
-
-    const count = await prisma.invoice.count();
-    let nextNum = count + 1;
-    let invoiceNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-
-    let exists = await prisma.invoice.findUnique({ where: { invoiceNumber } });
-    while (exists) {
-      nextNum++;
-      invoiceNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-      exists = await prisma.invoice.findUnique({ where: { invoiceNumber } });
-    }
+    const invoiceNumber = await getNextInvoiceNumber(prefix);
 
     const invoice = await prisma.invoice.create({
       data: {

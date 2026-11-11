@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { DEFAULT_INVOICE_TERMS } from '@/lib/terms';
+import { getNextInvoiceNumber } from '@/lib/numbering';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,20 +28,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
     }
 
-    // Generate New Invoice Number: CAP-INV-0001
+    // Generate New Invoice Number safely using max sequence
     const companySettings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
     const prefix = companySettings?.invoicePrefix || 'CAP-INV-';
-
-    const count = await prisma.invoice.count();
-    let nextNum = count + 1;
-    let invoiceNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-
-    let exists = await prisma.invoice.findUnique({ where: { invoiceNumber } });
-    while (exists) {
-      nextNum++;
-      invoiceNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-      exists = await prisma.invoice.findUnique({ where: { invoiceNumber } });
-    }
+    const invoiceNumber = await getNextInvoiceNumber(prefix);
 
     const invoiceDate = body.invoiceDate ? new Date(body.invoiceDate) : new Date();
     const dueDate = body.dueDate ? new Date(body.dueDate) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000); // 15 days default
