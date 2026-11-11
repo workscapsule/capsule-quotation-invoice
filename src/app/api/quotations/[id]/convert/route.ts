@@ -61,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           customerAddress: quotation.customerAddress,
           customerGstin: quotation.customerGstin,
           taxMode: quotation.taxMode,
-          discountType: 'NONE',
+          discountType: quotation.discountType || 'SQUARE_FEET',
           discountValue: 0,
           gstRate: quotation.gstRate,
           subtotal: quotation.subtotal,
@@ -90,7 +90,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
               type: it.type,
               description: it.description,
               quantity: it.quantity,
-              unit: 'Sq. Ft.',
+              unit: quotation.discountType === 'QUANTITY' ? (it.unit && it.unit !== 'Sq. Ft.' ? it.unit : 'Nos') : 'Sq. Ft.',
               rate: it.rate,
               amount: it.amount,
               sortOrder: it.sortOrder

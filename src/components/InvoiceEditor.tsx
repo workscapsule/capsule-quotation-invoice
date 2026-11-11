@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Image as ImageIcon
 } from 'lucide-react';
-import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, DiscountType } from '@/lib/calculations';
+import { calculateFinancials, LineItemInput, AdditionalChargeInput, TaxMode, DiscountType, PricingMode } from '@/lib/calculations';
 import { formatCurrency } from '@/lib/formatters';
 import { resolveProductImage } from '@/lib/productImages';
 import ProductImageModal from '@/components/ProductImageModal';
@@ -75,22 +75,40 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
   // Modal state for selecting / previewing product image
   const [imageModalItemIndex, setImageModalItemIndex] = useState<number | null>(null);
 
-  // Items State (Square Feet & Total Amount, free-text type & description)
+  // Mode Selection: Square Feet vs Quantity
+  const [pricingMode, setPricingMode] = useState<PricingMode>(() => {
+    if (initialData?.pricingMode) return initialData.pricingMode;
+    if (initialData?.discountType === 'QUANTITY') return 'QUANTITY';
+    if (initialData?.discountType === 'SQUARE_FEET') return 'SQUARE_FEET';
+    if (initialData?.items && initialData.items.length > 0) {
+      const hasSqFt = initialData.items.some((it: any) => it.unit === 'Sq. Ft.' || it.unit === 'Sq.ft');
+      return hasSqFt ? 'SQUARE_FEET' : 'QUANTITY';
+    }
+    return 'SQUARE_FEET';
+  });
+
+  // Items State (Manual rates, free-text type & description)
   const [items, setItems] = useState<LineItemInput[]>(
     initialData?.items && initialData.items.length > 0
-      ? initialData.items.map((it: any) => ({
-          categoryId: it.categoryId || null,
-          categoryName: it.categoryName || 'General',
-          imageUrl: it.imageUrl || null,
-          type: it.type || '',
-          description: it.description || '',
-          sqFt: it.sqFt !== undefined ? Number(it.sqFt) : (it.quantity !== undefined ? Number(it.quantity) : 0),
-          quantity: it.quantity !== undefined && it.quantity !== null ? Number(it.quantity) : 0,
-          unit: 'Sq. Ft.',
-          rate: it.rate !== undefined && it.rate !== null ? Number(it.rate) : 0,
-          amount: it.amount !== undefined && it.amount !== null ? Number(it.amount) : 0,
-          sortOrder: it.sortOrder
-        }))
+      ? initialData.items.map((it: any) => {
+          const qty = it.quantity !== undefined && it.quantity !== null ? Number(it.quantity) : 1;
+          const sq = it.sqFt !== undefined ? Number(it.sqFt) : qty;
+          const rate = it.rate !== undefined && it.rate !== null ? Number(it.rate) : 0;
+          const amt = it.amount !== undefined && it.amount !== null ? Number(it.amount) : Math.round(qty * rate * 100) / 100;
+          return {
+            categoryId: it.categoryId || null,
+            categoryName: it.categoryName || 'General',
+            imageUrl: it.imageUrl || null,
+            type: it.type || '',
+            description: it.description || '',
+            sqFt: sq,
+            quantity: qty,
+            unit: it.unit || (initialData?.discountType === 'QUANTITY' ? 'Nos' : 'Sq. Ft.'),
+            rate,
+            amount: amt,
+            sortOrder: it.sortOrder
+          };
+        })
       : [
           {
             categoryName: 'Modular Kitchen',
@@ -98,7 +116,7 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
             type: '',
             description: '',
             sqFt: 0,
-            quantity: 0,
+            quantity: 1,
             unit: 'Sq. Ft.',
             rate: 0,
             amount: 0
@@ -160,21 +178,51 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
   const calcResult = calculateFinancials({
     items,
     additionalCharges,
+    pricingMode,
     taxMode,
     gstRate,
     totalPaid: totalPaidSoFar,
     dueDate
   });
 
+  const handleModeChange = (mode: PricingMode) => {
+    setPricingMode(mode);
+    setItems(prev => prev.map(it => {
+      const unit = mode === 'SQUARE_FEET' ? 'Sq. Ft.' : (it.unit && it.unit !== 'Sq. Ft.' ? it.unit : 'Nos');
+      const measurement = mode === 'SQUARE_FEET'
+        ? (Number(it.sqFt !== undefined ? it.sqFt : it.quantity) || 0)
+        : (Number(it.quantity !== undefined ? it.quantity : it.sqFt) || 0);
+      const amount = Math.round(measurement * (Number(it.rate) || 0) * 100) / 100;
+      return {
+        ...it,
+        unit,
+        amount
+      };
+    }));
+  };
+
   const updateItem = (index: number, field: keyof LineItemInput | 'sqFt', value: any) => {
     setItems(prev => {
       const next = [...prev];
       const item = { ...next[index] };
 
-      if (field === 'sqFt' || field === 'quantity') {
+      if (field === 'sqFt') {
         const sq = Number(value) || 0;
         item.sqFt = sq;
         item.quantity = sq;
+        item.amount = Math.round(sq * (Number(item.rate) || 0) * 100) / 100;
+      } else if (field === 'quantity') {
+        const q = Number(value) || 0;
+        item.quantity = q;
+        item.sqFt = q;
+        item.amount = Math.round(q * (Number(item.rate) || 0) * 100) / 100;
+      } else if (field === 'rate') {
+        const r = Number(value) || 0;
+        item.rate = r;
+        const measurement = pricingMode === 'SQUARE_FEET'
+          ? (Number(item.sqFt !== undefined ? item.sqFt : item.quantity) || 0)
+          : (Number(item.quantity) || 0);
+        item.amount = Math.round(measurement * r * 100) / 100;
       } else if (field === 'amount') {
         item.amount = Number(value) || 0;
       } else {
@@ -196,8 +244,8 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
         type: '',
         description: '',
         sqFt: 0,
-        quantity: 0,
-        unit: 'Sq. Ft.',
+        quantity: pricingMode === 'SQUARE_FEET' ? 0 : 1,
+        unit: pricingMode === 'SQUARE_FEET' ? 'Sq. Ft.' : 'Nos',
         rate: 0,
         amount: 0
       }
@@ -246,11 +294,35 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
     const resolvedProjName = projectName.trim() || `${resolvedCustName} Project`;
 
     const cleanedItems = items.length === 0
-      ? [{ categoryName: 'Modular Kitchen', imageUrl: '/products/modular-kitchen.jpg', type: 'Work Item', description: '', sqFt: 0, quantity: 0, unit: 'Sq. Ft.', rate: 0, amount: 0 }]
+      ? [{
+          categoryName: 'Modular Kitchen',
+          imageUrl: '/products/modular-kitchen.jpg',
+          type: 'Work Item',
+          description: '',
+          sqFt: 0,
+          quantity: pricingMode === 'SQUARE_FEET' ? 0 : 1,
+          unit: pricingMode === 'SQUARE_FEET' ? 'Sq. Ft.' : 'Nos',
+          rate: 0,
+          amount: 0
+        }]
       : items.map(it => {
-          const sq = Number(it.sqFt !== undefined ? it.sqFt : it.quantity) || 0;
-          const amt = Number(it.amount) || 0;
-          const r = sq > 0 ? Math.round((amt / sq) * 100) / 100 : amt;
+          let sq = Number(it.sqFt !== undefined ? it.sqFt : it.quantity) || 0;
+          let qty = Number(it.quantity !== undefined ? it.quantity : it.sqFt) || 0;
+          const rate = Number(it.rate) || 0;
+          let amt = Number(it.amount) || 0;
+
+          if (pricingMode === 'SQUARE_FEET') {
+            if (amt === 0 && sq > 0 && rate > 0) {
+              amt = Math.round(sq * rate * 100) / 100;
+            }
+            qty = sq;
+          } else {
+            if (amt === 0 && qty > 0 && rate > 0) {
+              amt = Math.round(qty * rate * 100) / 100;
+            }
+            sq = qty;
+          }
+
           return {
             ...it,
             categoryName: it.categoryName?.trim() || 'General',
@@ -258,9 +330,9 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
             type: it.type || '',
             description: it.description || '',
             sqFt: sq,
-            quantity: sq,
-            unit: 'Sq. Ft.',
-            rate: r,
+            quantity: qty,
+            unit: pricingMode === 'SQUARE_FEET' ? 'Sq. Ft.' : (it.unit && it.unit !== 'Sq. Ft.' ? it.unit : 'Nos'),
+            rate,
             amount: Math.round(amt * 100) / 100
           };
         });
@@ -284,7 +356,8 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
         invoiceDate,
         dueDate,
         taxMode,
-        discountType: 'NONE',
+        pricingMode,
+        discountType: pricingMode,
         discountValue: 0,
         gstRate: Number(gstRate) || 18,
         items: cleanedItems,
@@ -591,19 +664,49 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
               </span>
             </h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Enter custom types, work specifications, units, and rates manually.
+              {pricingMode === 'SQUARE_FEET'
+                ? 'Square Feet Calculation: Enter Sq. Ft. measurement and Rate per Sq. Ft. Total amount is calculated automatically.'
+                : 'Quantity Calculation: Enter Quantity and Rate per Unit. Total amount is calculated automatically.'}
             </p>
           </div>
 
-          {/* HIGHLY VISIBLE + ADD ITEM BUTTON */}
-          <button
-            type="button"
-            onClick={addItem}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#C88A6E] hover:bg-[#B37356] text-white text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all group"
-          >
-            <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
-            <span>+ ADD ITEM</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Calculation / Display Mode Toggle */}
+            <div className="flex items-center bg-stone-200/80 p-0.5 rounded-lg border border-stone-300 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleModeChange('SQUARE_FEET')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  pricingMode === 'SQUARE_FEET'
+                    ? 'bg-white text-stone-900 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>📐 Square Feet</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeChange('QUANTITY')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  pricingMode === 'QUANTITY'
+                    ? 'bg-white text-stone-900 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>🔢 Quantity</span>
+              </button>
+            </div>
+
+            {/* HIGHLY VISIBLE + ADD ITEM BUTTON */}
+            <button
+              type="button"
+              onClick={addItem}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#C88A6E] hover:bg-[#B37356] text-white text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all group"
+            >
+              <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+              <span>+ ADD ITEM</span>
+            </button>
+          </div>
         </div>
 
         {/* Responsive Items Table */}
@@ -612,13 +715,23 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
             <thead>
               <tr className="border-b border-[#E8E2D9] bg-[#F7F4EE] text-[11px] font-bold uppercase tracking-wider text-stone-600">
                 <th className="py-3 px-3 w-10 text-center">#</th>
-                <th className="py-3 px-3 w-40">Category</th>
-                <th className="py-3 px-2 w-28 text-center">Product Image</th>
-                <th className="py-3 px-3 w-44">Type (Free Text)</th>
+                <th className="py-3 px-3 w-36">Category</th>
+                <th className="py-3 px-2 w-24 text-center">Product Image</th>
+                <th className="py-3 px-3 w-36">Type (Free Text)</th>
                 <th className="py-3 px-3">Description / Specs</th>
-                <th className="py-3 px-3 w-32 text-right">Square Feet (Sq. Ft.)</th>
+                {pricingMode === 'SQUARE_FEET' ? (
+                  <>
+                    <th className="py-3 px-3 w-32 text-right">Square Feet (Sq. Ft.)</th>
+                    <th className="py-3 px-3 w-32 text-right">Rate / Sq. Ft. (₹)</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="py-3 px-3 w-28 text-right">Quantity</th>
+                    <th className="py-3 px-3 w-32 text-right">Rate / Unit (₹)</th>
+                  </>
+                )}
                 <th className="py-3 px-3 w-36 text-right">Total Amount (₹)</th>
-                <th className="py-3 px-3 w-20 text-center">Actions</th>
+                <th className="py-3 px-3 w-16 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E8E2D9] text-xs">
@@ -702,21 +815,78 @@ export default function InvoiceEditor({ initialData, isEdit = false }: InvoiceEd
                     />
                   </td>
 
-                  {/* Square Feet (Sq. Ft.) */}
-                  <td className="py-3 px-3 align-top text-right">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        placeholder="0.00"
-                        value={item.sqFt !== undefined ? (item.sqFt || '') : (item.quantity || '')}
-                        onChange={(e) => updateItem(idx, 'sqFt', e.target.value)}
-                        className="w-full text-xs rounded border border-stone-300 p-1.5 bg-white text-right font-mono"
-                      />
-                      <span className="text-[10px] text-stone-400 block text-right mt-0.5 font-medium">Sq. Ft.</span>
-                    </div>
-                  </td>
+                  {/* Conditional Mode Inputs: Square Feet vs Quantity */}
+                  {pricingMode === 'SQUARE_FEET' ? (
+                    <>
+                      {/* Square Feet (Sq. Ft.) */}
+                      <td className="py-3 px-3 align-top text-right">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="0.00"
+                            value={item.sqFt !== undefined ? (item.sqFt || '') : (item.quantity || '')}
+                            onChange={(e) => updateItem(idx, 'sqFt', e.target.value)}
+                            className="w-full text-xs rounded border border-stone-300 p-1.5 bg-white text-right font-mono"
+                          />
+                          <span className="text-[10px] text-stone-400 block text-right mt-0.5 font-medium">Sq. Ft.</span>
+                        </div>
+                      </td>
+
+                      {/* Rate per Sq. Ft. */}
+                      <td className="py-3 px-3 align-top text-right">
+                        <div className="relative">
+                          <span className="absolute left-2 top-1.5 text-stone-400 text-xs font-mono">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="0.00"
+                            value={item.rate || ''}
+                            onChange={(e) => updateItem(idx, 'rate', e.target.value)}
+                            className="w-full text-xs rounded border border-stone-300 p-1.5 pl-6 bg-white text-right font-mono text-stone-900"
+                          />
+                          <span className="text-[10px] text-stone-400 block text-right mt-0.5 font-medium">per Sq. Ft.</span>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      {/* Quantity */}
+                      <td className="py-3 px-3 align-top text-right">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="1"
+                            value={item.quantity !== undefined ? (item.quantity || '') : (item.sqFt || '')}
+                            onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
+                            className="w-full text-xs rounded border border-stone-300 p-1.5 bg-white text-right font-mono"
+                          />
+                          <span className="text-[10px] text-stone-400 block text-right mt-0.5 font-medium">{item.unit || 'Nos'}</span>
+                        </div>
+                      </td>
+
+                      {/* Rate per Unit */}
+                      <td className="py-3 px-3 align-top text-right">
+                        <div className="relative">
+                          <span className="absolute left-2 top-1.5 text-stone-400 text-xs font-mono">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="0.00"
+                            value={item.rate || ''}
+                            onChange={(e) => updateItem(idx, 'rate', e.target.value)}
+                            className="w-full text-xs rounded border border-stone-300 p-1.5 pl-6 bg-white text-right font-mono text-stone-900"
+                          />
+                          <span className="text-[10px] text-stone-400 block text-right mt-0.5 font-medium">per Unit</span>
+                        </div>
+                      </td>
+                    </>
+                  )}
 
                   {/* Total Amount (₹) */}
                   <td className="py-3 px-3 align-top text-right">

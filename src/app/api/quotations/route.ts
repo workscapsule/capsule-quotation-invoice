@@ -37,7 +37,12 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json(quotations);
+    const transformed = quotations.map(q => ({
+      ...q,
+      pricingMode: q.discountType === 'QUANTITY' ? 'QUANTITY' : 'SQUARE_FEET'
+    }));
+
+    return NextResponse.json(transformed);
   } catch (error) {
     console.error('Error fetching quotations:', error);
     return NextResponse.json({ error: 'Failed to fetch quotations' }, { status: 500 });
@@ -227,10 +232,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Selected Customer or Project could not be resolved' }, { status: 404 });
     }
 
+    const pricingMode = body.pricingMode || (body.discountType === 'QUANTITY' ? 'QUANTITY' : 'SQUARE_FEET');
+
     // Run Calculation Engine (Discounts removed completely)
     const calculated = calculateFinancials({
       items: sanitizedItems,
       additionalCharges,
+      pricingMode,
       taxMode,
       gstRate: Number(gstRate) || 18
     });
@@ -263,7 +271,7 @@ export async function POST(req: Request) {
         customerAddress: body.customerAddress?.trim() || customer.address || null,
         customerGstin: body.customerGstin?.trim() || customer.gstin || null,
         taxMode,
-        discountType: 'NONE',
+        discountType: pricingMode,
         discountValue: 0,
         gstRate: Number(gstRate) || 18,
         subtotal: calculated.subtotal,
@@ -287,8 +295,10 @@ export async function POST(req: Request) {
             imageUrl: it.imageUrl || null,
             type: (it.type || '').trim(),
             description: (it.description || '').trim(),
-            quantity: isNaN(Number(it.sqFt ?? it.quantity)) ? 0 : Number(it.sqFt ?? it.quantity),
-            unit: 'Sq. Ft.',
+            quantity: pricingMode === 'SQUARE_FEET'
+              ? (isNaN(Number(it.sqFt ?? it.quantity)) ? 0 : Number(it.sqFt ?? it.quantity))
+              : (isNaN(Number(it.quantity ?? it.sqFt)) ? 0 : Number(it.quantity ?? it.sqFt)),
+            unit: pricingMode === 'SQUARE_FEET' ? 'Sq. Ft.' : (it.unit && it.unit !== 'Sq. Ft.' ? it.unit : 'Nos'),
             rate: isNaN(Number(it.rate)) ? 0 : Number(it.rate),
             amount: isNaN(Number(it.amount)) ? 0 : Number(it.amount),
             sortOrder: idx + 1

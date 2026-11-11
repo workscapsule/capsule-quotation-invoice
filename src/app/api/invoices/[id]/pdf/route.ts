@@ -93,7 +93,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const itemImagesBase64 = await getItemImagesBase64(invoice.items);
 
     const doc = buildPDFDoc({
-      data: { ...invoice, companySettings },
+      data: {
+        ...invoice,
+        pricingMode: invoice.discountType === 'QUANTITY' ? 'QUANTITY' : 'SQUARE_FEET',
+        companySettings
+      },
       type: 'INVOICE',
       logoBase64: getLogoBase64(),
       itemImagesBase64,

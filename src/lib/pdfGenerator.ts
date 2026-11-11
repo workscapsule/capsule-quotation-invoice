@@ -245,23 +245,56 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
   // --- 3. WORK ITEMS TABLE ---
   const tableStartY = boxY + boxHeight + 3.5;
 
+  const isQuantityMode = data.pricingMode === 'QUANTITY' || data.discountType === 'QUANTITY';
   const items = Array.isArray(data.items) ? data.items : [];
+
+  const tableHead = isQuantityMode
+    ? [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'QTY', 'RATE', 'TOTAL AMOUNT']]
+    : [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'SQUARE FEET', 'TOTAL AMOUNT']];
+
   const tableRows = items.map((item: any) => {
     const scopeHeader = `${item.categoryName ? `${item.categoryName}` : ''}${item.type ? ` — ${item.type}` : ''}`;
     const desc = item.description ? `\n${item.description}` : '';
     const sqFt = item.sqFt !== undefined ? item.sqFt : item.quantity;
+    const qty = item.quantity !== undefined ? item.quantity : item.sqFt;
     const amount = item.amount ?? 0;
-    return [
-      '', // Column 0: Product Image (drawn in didDrawCell)
-      scopeHeader + desc,
-      sqFt ? `${sqFt} Sq. Ft.` : '—',
-      formatPdfCurrency(amount)
-    ];
+
+    if (isQuantityMode) {
+      return [
+        '', // Column 0: Product Image (drawn in didDrawCell)
+        scopeHeader + desc,
+        `${qty || 1}`,
+        formatPdfCurrency(item.rate ?? 0),
+        formatPdfCurrency(amount)
+      ];
+    } else {
+      return [
+        '', // Column 0: Product Image (drawn in didDrawCell)
+        scopeHeader + desc,
+        sqFt ? `${sqFt} Sq. Ft.` : '—',
+        formatPdfCurrency(amount)
+      ];
+    }
   });
+
+  const columnStyles: any = isQuantityMode
+    ? {
+        0: { cellWidth: 20, halign: 'center' },                     // Product Image column
+        1: { cellWidth: 'auto' },                                   // Type & work specifications
+        2: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },    // QTY
+        3: { cellWidth: 26, halign: 'right' },                      // RATE
+        4: { cellWidth: 32, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL AMOUNT
+      }
+    : {
+        0: { cellWidth: 22, halign: 'center' },                     // Product Image column
+        1: { cellWidth: 'auto' },                                   // Type & work specifications
+        2: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },    // SQUARE FEET
+        3: { cellWidth: 34, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL AMOUNT
+      };
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [['IMAGE', 'TYPE & WORK SPECIFICATIONS', 'SQ. FT.', 'TOTAL AMOUNT']],
+    head: tableHead,
     body: tableRows,
     theme: 'plain',
     headStyles: {
@@ -277,12 +310,7 @@ export function buildPDFDoc({ data, type, logoBase64, itemImagesBase64, upiQrBas
       valign: 'middle',
       minCellHeight: 16.5, // ensures consistent height for product image
     },
-    columnStyles: {
-      0: { cellWidth: 22, halign: 'center' }, // Product Image column
-      1: { cellWidth: 'auto' },               // Type & work specifications
-      2: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }, // SQ. FT.
-      3: { cellWidth: 34, halign: 'right', fontStyle: 'bold', textColor: [20, 20, 20] }, // TOTAL AMOUNT
-    },
+    columnStyles,
     margin: { left: margin, right: margin },
     didDrawCell: (hookData) => {
       if (hookData.section === 'body' && hookData.column.index === 0) {

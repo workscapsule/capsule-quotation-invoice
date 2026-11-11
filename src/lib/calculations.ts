@@ -1,3 +1,5 @@
+export type PricingMode = 'SQUARE_FEET' | 'QUANTITY';
+
 export interface LineItemInput {
   id?: string;
   categoryId?: string | null;
@@ -5,11 +7,11 @@ export interface LineItemInput {
   imageUrl?: string | null; // Product image path or URL
   type: string;         // FREE-TEXT user input
   description: string;  // FREE-TEXT user input
-  sqFt?: number;        // Square Feet (Sq. Ft.)
-  quantity?: number;    // Stored for database schema compatibility, represents Sq. Ft.
-  unit?: string;        // Always 'Sq. Ft.'
-  rate?: number;        // Internal price rate, not displayed
-  amount: number;       // Direct Total Amount for the item
+  sqFt?: number;        // Square Feet (Sq. Ft.) measurement
+  quantity?: number;    // Quantity or square feet for DB storage
+  unit?: string;        // 'Sq. Ft.' or 'Nos' / custom unit
+  rate?: number;        // Rate per Sq. Ft. or Rate per Unit
+  amount?: number;      // Auto-calculated: measurement * rate
   sortOrder?: number;
 }
 
@@ -25,6 +27,7 @@ export type DiscountType = 'PERCENTAGE' | 'FIXED' | 'NONE';
 export interface CalculationInput {
   items: LineItemInput[];
   additionalCharges?: AdditionalChargeInput[];
+  pricingMode?: PricingMode;
   discountType?: DiscountType;
   discountValue?: number;
   taxMode?: TaxMode;
@@ -51,23 +54,35 @@ export interface CalculationResult {
 
 /**
  * Pure calculation engine for Quotations and Invoices.
- * Pricing is fixed directly by the company via Total Amount per item.
- * Square Feet (Sq. Ft.) is displayed; Rate per Sq. Ft. is not displayed.
- * Discounts are removed.
+ * Supports two selectable calculation modes:
+ * 1. Square Feet Mode: Total Amount = Square Feet × Rate per Sq. Ft.
+ * 2. Quantity Mode: Total Amount = Quantity × Rate per Unit
  */
 export function calculateFinancials(input: CalculationInput): CalculationResult {
+  const pricingMode: PricingMode = input.pricingMode || 'SQUARE_FEET';
+
   const items = (input.items || []).map((item, idx) => {
-    const sqFt = Number(item.sqFt !== undefined ? item.sqFt : item.quantity) || 0;
-    const amount = item.amount !== undefined && !isNaN(Number(item.amount))
-      ? Math.round(Number(item.amount) * 100) / 100
-      : Math.round(sqFt * (Number(item.rate) || 0) * 100) / 100;
-    const rate = sqFt > 0 ? Math.round((amount / sqFt) * 100) / 100 : amount;
+    let sqFt = Number(item.sqFt !== undefined ? item.sqFt : item.quantity) || 0;
+    let qty = Number(item.quantity !== undefined ? item.quantity : item.sqFt) || 0;
+    const rate = Number(item.rate) || 0;
+    let amount = 0;
+    let unit = item.unit || (pricingMode === 'SQUARE_FEET' ? 'Sq. Ft.' : 'Nos');
+
+    if (pricingMode === 'SQUARE_FEET') {
+      amount = Math.round(sqFt * rate * 100) / 100;
+      qty = sqFt;
+      unit = 'Sq. Ft.';
+    } else {
+      amount = Math.round(qty * rate * 100) / 100;
+      sqFt = qty;
+      if (!unit || unit === 'Sq. Ft.') unit = 'Nos';
+    }
 
     return {
       ...item,
       sqFt,
-      quantity: sqFt,
-      unit: 'Sq. Ft.',
+      quantity: qty,
+      unit,
       rate,
       amount,
       sortOrder: item.sortOrder ?? idx + 1
